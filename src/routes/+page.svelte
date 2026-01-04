@@ -698,7 +698,7 @@
 									<!-- Pentatonic diagonal shape -->
 									<path
 										d={generateShapePath(shape)}
-										fill="none"
+										fill={shapeColors[shape.colorIndex]}
 										stroke={shapeBorderColors[shape.colorIndex]}
 										stroke-width="2"
 										stroke-linejoin="round"
@@ -711,7 +711,7 @@
 										y="44"
 										width={pos.width}
 										height="240"
-										fill="none"
+										fill={shapeColors[shape.colorIndex]}
 										stroke={shapeBorderColors[shape.colorIndex]}
 										stroke-width="2"
 										rx="4"
@@ -772,7 +772,7 @@
 
 								{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
 									<div
-										class="relative z-10 flex h-10 items-center justify-center {fretIndex === 0
+										class="relative z-20 flex h-10 items-center justify-center {fretIndex === 0
 											? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30'
 											: 'w-14 border-r-2 border-r-zinc-600'}"
 									>
