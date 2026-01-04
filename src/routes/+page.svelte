@@ -13,14 +13,9 @@
 	// Track selected frets: object map of "string-fret" to boolean
 	let selectedFrets: Record<string, boolean> = $state({});
 
-	function toggleFret(stringIndex: number, fretIndex: number) {
-		const key = `${stringIndex}-${fretIndex}`;
-		if (selectedFrets[key]) {
-			delete selectedFrets[key];
-		} else {
-			selectedFrets[key] = true;
-		}
-	}
+	// Painting state
+	let isPainting = $state(false);
+	let paintMode: 'add' | 'remove' = $state('add');
 
 	function isSelected(stringIndex: number, fretIndex: number): boolean {
 		return !!selectedFrets[`${stringIndex}-${fretIndex}`];
@@ -41,12 +36,40 @@
 			selectedFrets[`${stringIndex}-${i}`] = true;
 		}
 	}
+
+	function startPainting(stringIndex: number, fretIndex: number) {
+		isPainting = true;
+		// Determine paint mode based on current state of the clicked fret
+		paintMode = isSelected(stringIndex, fretIndex) ? 'remove' : 'add';
+		applyPaint(stringIndex, fretIndex);
+	}
+
+	function stopPainting() {
+		isPainting = false;
+	}
+
+	function applyPaint(stringIndex: number, fretIndex: number) {
+		const key = `${stringIndex}-${fretIndex}`;
+		if (paintMode === 'add') {
+			selectedFrets[key] = true;
+		} else {
+			delete selectedFrets[key];
+		}
+	}
+
+	function handlePaintOver(stringIndex: number, fretIndex: number) {
+		if (isPainting) {
+			applyPaint(stringIndex, fretIndex);
+		}
+	}
 </script>
+
+<svelte:window onmouseup={stopPainting} />
 
 <div class="flex min-h-screen flex-col p-8">
 	<header class="mb-12 text-center">
 		<h1 class="mb-2 text-4xl font-bold tracking-tight">Fretboard Visualizer</h1>
-		<p class="text-muted-foreground">Click on the frets to visualize notes and patterns</p>
+		<p class="text-muted-foreground">Click and drag to paint notes on the fretboard</p>
 	</header>
 
 	<main class="flex flex-1 flex-col items-center gap-6">
@@ -76,14 +99,20 @@
 							></div>
 
 							{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
-								<button
-									class="relative z-10 flex h-10 items-center justify-center transition-colors hover:bg-white/5 {fretIndex === 0 ? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30' : 'w-14 border-r-2 border-r-zinc-600'}"
-									onclick={() => toggleFret(stringIndex, fretIndex)}
+								<div
+									class="relative z-10 flex h-10 items-center justify-center {fretIndex === 0 ? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30' : 'w-14 border-r-2 border-r-zinc-600'}"
 								>
-									{#if isSelected(stringIndex, fretIndex)}
-										<div class="h-7 w-7 rounded-full border-2 border-white bg-primary shadow-lg shadow-primary/50 transition-transform hover:scale-110"></div>
-									{/if}
-								</button>
+									<!-- Circular hit area for painting -->
+									<button
+										class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+										onmousedown={() => startPainting(stringIndex, fretIndex)}
+										onmouseenter={() => handlePaintOver(stringIndex, fretIndex)}
+									>
+										{#if isSelected(stringIndex, fretIndex)}
+											<div class="h-7 w-7 rounded-full border-2 border-white bg-primary shadow-lg shadow-primary/50 transition-transform hover:scale-110"></div>
+										{/if}
+									</button>
+								</div>
 							{/each}
 						</div>
 					</ContextMenu.Trigger>
