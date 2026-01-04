@@ -2,16 +2,27 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
+	import { Switch } from '$lib/components/ui/switch';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Settings from '@lucide/svelte/icons/settings';
 
 	// Standard guitar tuning (high to low in display)
 	const strings = ['E', 'B', 'G', 'D', 'A', 'E'];
-	const fretCount = 15;
+	const fretCount = 24;
 
-	// Fret markers (single dots and double dot at 12th)
-	const singleDotFrets = [3, 5, 7, 9, 15];
-	const doubleDotFret = 12;
+	// Fret markers (single dots and double dots at 12th and 24th)
+	const singleDotFrets = [3, 5, 7, 9, 15, 17, 19, 21];
+	const doubleDotFrets = [12, 24];
+
+	// Chromatic scale for note calculation
+	const chromaticScale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+	// Base note index for each string (E=4, B=11, G=7, D=2, A=9, E=4)
+	const stringBaseNotes = [4, 11, 7, 2, 9, 4];
+
+	function getNoteName(stringIndex: number, fretIndex: number): string {
+		const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
+		return chromaticScale[noteIndex];
+	}
 
 	// Track selected frets: object map of "string-fret" to color
 	let selectedFrets: Record<string, string> = $state({});
@@ -22,6 +33,7 @@
 
 	// Settings state
 	let settingsOpen = $state(false);
+	let eraseSelectedColorOnly = $state(false);
 
 	// Color options - predefined colors that match the dark theme
 	const presetColors = [
@@ -84,7 +96,10 @@
 		if (paintMode === 'add') {
 			selectedFrets[key] = selectedColor;
 		} else {
-			delete selectedFrets[key];
+			// Only erase if toggle is off, or if the note matches the selected color
+			if (!eraseSelectedColorOnly || selectedFrets[key] === selectedColor) {
+				delete selectedFrets[key];
+			}
 		}
 	}
 
@@ -160,6 +175,17 @@
 								</div>
 							</div>
 						</div>
+						<div class="flex items-center justify-between">
+							<div>
+								<span class="block text-sm font-medium text-muted-foreground"
+									>Erase selected color only</span
+								>
+								<span class="text-xs text-muted-foreground/70"
+									>Only erase notes matching the current color</span
+								>
+							</div>
+							<Switch bind:checked={eraseSelectedColorOnly} />
+						</div>
 					</div>
 				</Collapsible.Content>
 			</Collapsible.Root>
@@ -209,9 +235,13 @@
 											{#if isSelected(stringIndex, fretIndex)}
 												{@const noteColor = getNoteColor(stringIndex, fretIndex)}
 												<div
-													class="h-7 w-7 rounded-full border-2 border-white shadow-lg transition-transform hover:scale-110"
-													style="background-color: {noteColor}; box-shadow: 0 10px 15px -3px {noteColor}80;"
-												></div>
+													class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white shadow-lg transition-transform hover:scale-110"
+													style="background-color: {noteColor}bf; box-shadow: 0 10px 15px -3px {noteColor}80;"
+												>
+													<span class="text-[10px] font-bold text-white drop-shadow-md"
+														>{getNoteName(stringIndex, fretIndex)}</span
+													>
+												</div>
 											{/if}
 										</button>
 									</div>
@@ -239,7 +269,7 @@
 						>
 							{#if singleDotFrets.includes(fretIndex)}
 								<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
-							{:else if fretIndex === doubleDotFret}
+							{:else if doubleDotFrets.includes(fretIndex)}
 								<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
 								<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
 							{/if}
