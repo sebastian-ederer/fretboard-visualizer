@@ -275,10 +275,14 @@
 		const result: ActiveShape[] = [];
 
 		if (scale === 'pentatonic') {
+			// For major pentatonic, use relative minor position (3 semitones down)
+			// This aligns shapes correctly since C major pent = A minor pent (same notes)
+			const effectiveRootFret = isMajor ? (rootFret - 3 + 12) % 12 : rootFret;
+
 			// Use path-based shapes for pentatonic
 			pentatonicShapes.forEach((shape, index) => {
 				for (let octave = -1; octave <= 2; octave++) {
-					const startFret = rootFret + shape.startOffset + octave * 12;
+					const startFret = effectiveRootFret + shape.startOffset + octave * 12;
 					const maxFret = startFret + Math.max(...shape.path.map((p) => p[0]));
 					const minFret = startFret + Math.min(...shape.path.map((p) => p[0]));
 
