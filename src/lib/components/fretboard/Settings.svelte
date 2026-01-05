@@ -14,7 +14,6 @@
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Zap from '@lucide/svelte/icons/zap';
 
-	import type { Preset } from '$lib/fretboard/types';
 	import {
 		PRESET_COLORS,
 		TUNING_PRESET_NAMES,
@@ -24,179 +23,133 @@
 		THREE_NPS_OPTIONS
 	} from '$lib/fretboard/constants';
 	import { getDisplayNote, getNoteIndex, getChromaticScale } from '$lib/fretboard/music-utils';
-	import { createScrollHandler, createNumericScrollHandler } from '$lib/fretboard/scroll-utils';
 	import { exportPresetsToFile, importPresetsFromFile, savePresets } from '$lib/fretboard/storage';
+	import type { fretboardStore as FretboardStoreType } from '$lib/fretboard/store.svelte';
 
 	interface Props {
-		settingsOpen: boolean;
-		// History
-		canUndo: () => boolean;
-		canRedo: () => boolean;
-		undo: () => void;
-		redo: () => void;
-		// Presets
-		savedPresets: Record<string, Preset>;
-		presetName: string;
-		selectedPresetName: string;
-		savePreset: () => void;
-		loadPreset: () => void;
-		deletePreset: () => void;
-		// Display settings
-		selectedColor: string;
-		customColor: string;
-		eraseSelectedColorOnly: boolean;
-		showIntervals: boolean;
-		useFlats: boolean;
-		// Scale settings
-		selectedKey: string;
-		isMajor: boolean;
-		selectedScale: string;
-		scaleToRemove: string;
-		applyScale: () => void;
-		removeScaleNotes: () => void;
-		// Shape settings
-		showShapeBoxes: boolean;
-		show3NPSShapeBoxes: boolean;
-		selected3NPSShape: number;
-		update3NPSShape: () => void;
-		// Tuning settings
-		selectedTuningPreset: string;
-		strings: string[];
-		applyTuningPreset: (preset: string) => void;
-		pushHistory: (immediate?: boolean) => void;
-		// Clear
-		clearAll: () => void;
+		store: typeof FretboardStoreType;
 	}
 
-	let {
-		settingsOpen = $bindable(),
-		canUndo,
-		canRedo,
-		undo,
-		redo,
-		savedPresets = $bindable(),
-		presetName = $bindable(),
-		selectedPresetName = $bindable(),
-		savePreset,
-		loadPreset,
-		deletePreset,
-		selectedColor = $bindable(),
-		customColor = $bindable(),
-		eraseSelectedColorOnly = $bindable(),
-		showIntervals = $bindable(),
-		useFlats = $bindable(),
-		selectedKey = $bindable(),
-		isMajor = $bindable(),
-		selectedScale = $bindable(),
-		scaleToRemove = $bindable(),
-		applyScale,
-		removeScaleNotes,
-		showShapeBoxes = $bindable(),
-		show3NPSShapeBoxes = $bindable(),
-		selected3NPSShape = $bindable(),
-		update3NPSShape,
-		selectedTuningPreset = $bindable(),
-		strings = $bindable(),
-		applyTuningPreset,
-		pushHistory,
-		clearAll
-	}: Props = $props();
+	let { store }: Props = $props();
+
+	// Shorthand access to state
+	const s = $derived(store.state);
 
 	let fileInput: HTMLInputElement;
 
-	const chromaticScale = $derived(getChromaticScale(useFlats));
+	const chromaticScale = $derived(getChromaticScale(s.useFlats));
 	const tuningPresetKeys = Object.keys(TUNING_PRESETS);
+
+	// Generic keyboard handler for cycling through options
+	function handleArrowKeys<T>(
+		e: KeyboardEvent,
+		options: T[],
+		getCurrentValue: () => T,
+		setValue: (value: T) => void,
+		onAfterChange?: () => void
+	) {
+		if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+		e.preventDefault();
+		const currentValue = getCurrentValue();
+		const idx = options.indexOf(currentValue);
+		const newIdx =
+			e.key === 'ArrowDown'
+				? (idx + 1) % options.length
+				: (idx - 1 + options.length) % options.length;
+		setValue(options[newIdx]);
+		onAfterChange?.();
+	}
 
 	// Scroll handlers
 	function scrollKey(e: WheelEvent) {
 		e.preventDefault();
-		const idx = getNoteIndex(selectedKey);
+		const idx = getNoteIndex(s.selectedKey);
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % chromaticScale.length
 				: (idx - 1 + chromaticScale.length) % chromaticScale.length;
-		selectedKey = chromaticScale[newIdx];
+		s.selectedKey = chromaticScale[newIdx];
 	}
 
 	function scrollScale(e: WheelEvent) {
 		e.preventDefault();
-		const idx = SCALE_OPTIONS.indexOf(selectedScale);
+		const idx = SCALE_OPTIONS.indexOf(s.selectedScale);
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % SCALE_OPTIONS.length
 				: (idx - 1 + SCALE_OPTIONS.length) % SCALE_OPTIONS.length;
-		selectedScale = SCALE_OPTIONS[newIdx];
+		s.selectedScale = SCALE_OPTIONS[newIdx];
 	}
 
 	function scrollRemoveScale(e: WheelEvent) {
 		e.preventDefault();
-		const idx = REMOVE_SCALE_OPTIONS.indexOf(scaleToRemove);
+		const idx = REMOVE_SCALE_OPTIONS.indexOf(s.scaleToRemove);
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % REMOVE_SCALE_OPTIONS.length
 				: (idx - 1 + REMOVE_SCALE_OPTIONS.length) % REMOVE_SCALE_OPTIONS.length;
-		scaleToRemove = REMOVE_SCALE_OPTIONS[newIdx];
+		s.scaleToRemove = REMOVE_SCALE_OPTIONS[newIdx];
 	}
 
 	function scroll3NPSShape(e: WheelEvent) {
 		e.preventDefault();
-		const currentVal = selected3NPSShape?.toString() ?? '1';
+		const currentVal = s.selected3NPSShape?.toString() ?? '1';
 		const idx = THREE_NPS_OPTIONS.indexOf(currentVal);
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % THREE_NPS_OPTIONS.length
 				: (idx - 1 + THREE_NPS_OPTIONS.length) % THREE_NPS_OPTIONS.length;
-		selected3NPSShape = parseInt(THREE_NPS_OPTIONS[newIdx]);
-		update3NPSShape();
+		s.selected3NPSShape = parseInt(THREE_NPS_OPTIONS[newIdx]);
+		store.recalculateShapes();
 	}
 
 	function scrollPreset(e: WheelEvent) {
 		e.preventDefault();
-		const presetNames = Object.keys(savedPresets);
+		const presetNames = Object.keys(s.savedPresets);
 		if (presetNames.length === 0) return;
-		const idx = presetNames.indexOf(selectedPresetName);
+		const idx = presetNames.indexOf(s.selectedPresetName);
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % presetNames.length
 				: (idx - 1 + presetNames.length) % presetNames.length;
-		selectedPresetName = presetNames[newIdx];
+		s.selectedPresetName = presetNames[newIdx];
 	}
 
 	function scrollTuning(e: WheelEvent) {
 		e.preventDefault();
-		let idx = tuningPresetKeys.indexOf(selectedTuningPreset);
+		let idx = tuningPresetKeys.indexOf(s.selectedTuningPreset);
 		if (idx === -1) idx = e.deltaY > 0 ? -1 : 0;
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % tuningPresetKeys.length
 				: (idx - 1 + tuningPresetKeys.length) % tuningPresetKeys.length;
-		applyTuningPreset(tuningPresetKeys[newIdx]);
+		store.applyTuningPreset(tuningPresetKeys[newIdx]);
 	}
 
 	function scrollStringTuning(e: WheelEvent, stringIndex: number) {
 		e.preventDefault();
-		const currentNote = strings[stringIndex];
+		const currentNote = s.strings[stringIndex];
 		const currentIdx = getNoteIndex(currentNote);
 		const direction = e.deltaY > 0 ? -1 : 1;
 		const newIdx = (currentIdx + direction + 12) % 12;
-		strings[stringIndex] = chromaticScale[newIdx];
-		strings = [...strings];
-		selectedTuningPreset = 'custom';
-		pushHistory(true);
+		s.strings[stringIndex] = chromaticScale[newIdx];
+		s.strings = [...s.strings];
+		s.selectedTuningPreset = 'custom';
+		store.pushHistory(true);
 	}
 
 	function selectPresetColor(color: string) {
-		selectedColor = color;
+		s.selectedColor = color;
 	}
 
 	function handleCustomColorChange(event: Event) {
 		const input = event.target as HTMLInputElement;
-		customColor = input.value;
-		selectedColor = input.value;
+		s.customColor = input.value;
+		s.selectedColor = input.value;
 	}
 
 	function exportPresets() {
-		exportPresetsToFile(savedPresets);
+		exportPresetsToFile(s.savedPresets);
 	}
 
 	function importPresets(event: Event) {
@@ -207,8 +160,8 @@
 		importPresetsFromFile(
 			file,
 			(imported) => {
-				savedPresets = { ...savedPresets, ...imported };
-				savePresets(savedPresets);
+				s.savedPresets = { ...s.savedPresets, ...imported };
+				savePresets(s.savedPresets);
 				input.value = '';
 			},
 			(error) => {
@@ -220,7 +173,7 @@
 	}
 </script>
 
-<Collapsible.Root bind:open={settingsOpen} class="w-full">
+<Collapsible.Root bind:open={s.settingsOpen} class="w-full">
 	<Collapsible.Trigger
 		class="flex w-full items-center justify-between rounded-lg border border-border/50 bg-card/50 px-4 py-3 transition-colors hover:bg-card"
 	>
@@ -229,7 +182,7 @@
 			<span class="text-sm font-medium">Settings</span>
 		</div>
 		<ChevronDown
-			class="h-4 w-4 text-muted-foreground transition-transform duration-200 {settingsOpen
+			class="h-4 w-4 text-muted-foreground transition-transform duration-200 {s.settingsOpen
 				? 'rotate-180'
 				: ''}"
 		/>
@@ -241,10 +194,10 @@
 				<span class="text-sm font-medium text-muted-foreground">History</span>
 				<div class="flex gap-1 sm:gap-2">
 					<Button
-						onclick={undo}
+						onclick={store.undo}
 						variant="outline"
 						size="sm"
-						disabled={!canUndo()}
+						disabled={!store.canUndo}
 						class="h-8 px-2"
 						title="Undo (Ctrl+Z)"
 					>
@@ -252,10 +205,10 @@
 						<span class="hidden sm:inline">Undo</span>
 					</Button>
 					<Button
-						onclick={redo}
+						onclick={store.redo}
 						variant="outline"
 						size="sm"
-						disabled={!canRedo()}
+						disabled={!store.canRedo}
 						class="h-8 px-2"
 						title="Redo (Ctrl+Y)"
 					>
@@ -271,20 +224,22 @@
 				<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
 					<!-- Save Preset -->
 					<div class="flex flex-col gap-1">
-						<span class="text-xs text-muted-foreground/70">Save As</span>
+						<label for="preset-name-input" class="text-xs text-muted-foreground/70">Save As</label>
 						<div class="flex gap-1">
 							<input
+								id="preset-name-input"
 								type="text"
-								bind:value={presetName}
+								bind:value={s.presetName}
 								placeholder="Preset name..."
 								class="h-9 w-full rounded-md border border-border bg-background px-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
-								onkeydown={(e) => e.key === 'Enter' && savePreset()}
+								onkeydown={(e) => e.key === 'Enter' && store.savePreset()}
 							/>
 							<Button
-								onclick={savePreset}
+								onclick={store.savePreset}
 								variant="secondary"
 								class="h-9 px-2"
-								disabled={!presetName.trim()}
+								disabled={!s.presetName.trim()}
+								aria-label="Save preset"
 							>
 								Save
 							</Button>
@@ -292,33 +247,44 @@
 					</div>
 
 					<!-- Load/Delete Preset -->
-					{#if Object.keys(savedPresets).length > 0}
+					{#if Object.keys(s.savedPresets).length > 0}
 						<div class="flex flex-col gap-1">
-							<span class="text-xs text-muted-foreground/70">Load Preset</span>
+							<span id="preset-load-label" class="text-xs text-muted-foreground/70">Load Preset</span>
 							<div class="flex gap-1">
-								<Select.Root type="single" bind:value={selectedPresetName}>
-									<Select.Trigger class="h-9 w-full sm:w-36" onwheel={scrollPreset}>
-										{selectedPresetName || 'Select...'}
+								<Select.Root type="single" bind:value={s.selectedPresetName}>
+									<Select.Trigger
+										class="h-9 w-full sm:w-36"
+										onwheel={scrollPreset}
+										onkeydown={(e) => {
+											const presetNames = Object.keys(s.savedPresets);
+											if (presetNames.length === 0) return;
+											handleArrowKeys(e, presetNames, () => s.selectedPresetName, (v) => (s.selectedPresetName = v));
+										}}
+										aria-labelledby="preset-load-label"
+									>
+										{s.selectedPresetName || 'Select...'}
 									</Select.Trigger>
 									<Select.Content class="max-h-64 overflow-y-auto">
-										{#each Object.keys(savedPresets) as name (name)}
+										{#each Object.keys(s.savedPresets) as name (name)}
 											<Select.Item value={name}>{name}</Select.Item>
 										{/each}
 									</Select.Content>
 								</Select.Root>
 								<Button
-									onclick={loadPreset}
+									onclick={store.loadPreset}
 									variant="secondary"
 									class="h-9 px-2"
-									disabled={!selectedPresetName}
+									disabled={!s.selectedPresetName}
+									aria-label="Load preset"
 								>
 									Load
 								</Button>
 								<Button
-									onclick={deletePreset}
+									onclick={store.deletePreset}
 									variant="ghost"
 									class="h-9 px-2 text-muted-foreground hover:text-destructive"
-									disabled={!selectedPresetName}
+									disabled={!s.selectedPresetName}
+									aria-label="Delete preset"
 								>
 									<Trash2 class="h-4 w-4" />
 								</Button>
@@ -334,7 +300,7 @@
 								onclick={exportPresets}
 								variant="outline"
 								class="h-9 px-2"
-								disabled={Object.keys(savedPresets).length === 0}
+								disabled={Object.keys(s.savedPresets).length === 0}
 							>
 								Export
 							</Button>
@@ -363,7 +329,7 @@
 					<div class="flex items-center gap-1">
 						{#each PRESET_COLORS as color (color)}
 							<button
-								class="h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 {selectedColor ===
+								class="h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 {s.selectedColor ===
 								color
 									? 'border-white ring-1 ring-white/30'
 									: 'border-transparent'}"
@@ -375,19 +341,19 @@
 						<div class="relative">
 							<input
 								type="color"
-								value={customColor}
+								value={s.customColor}
 								onchange={handleCustomColorChange}
 								class="absolute inset-0 h-6 w-6 cursor-pointer opacity-0"
 								aria-label="Choose custom color"
 							/>
 							<div
-								class="flex h-6 w-6 items-center justify-center rounded-full p-[2px] transition-transform hover:scale-110 {selectedColor ===
-									customColor && !PRESET_COLORS.includes(selectedColor)
+								class="flex h-6 w-6 items-center justify-center rounded-full p-[2px] transition-transform hover:scale-110 {s.selectedColor ===
+									s.customColor && !PRESET_COLORS.includes(s.selectedColor)
 									? 'ring-1 ring-white/30'
 									: ''}"
 								style="background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);"
 							>
-								<div class="h-full w-full rounded-full" style="background-color: {customColor};"></div>
+								<div class="h-full w-full rounded-full" style="background-color: {s.customColor};"></div>
 							</div>
 						</div>
 					</div>
@@ -396,17 +362,17 @@
 				<!-- Toggle Options -->
 				<div class="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6">
 					<label class="flex cursor-pointer items-center gap-2">
-						<Switch bind:checked={eraseSelectedColorOnly} />
+						<Switch bind:checked={s.eraseSelectedColorOnly} />
 						<span class="text-sm text-muted-foreground">Erase color only</span>
 					</label>
 
 					<label class="flex cursor-pointer items-center gap-2">
-						<Switch bind:checked={showIntervals} />
+						<Switch bind:checked={s.showIntervals} />
 						<span class="text-sm text-muted-foreground">Intervals</span>
 					</label>
 
 					<label class="flex cursor-pointer items-center gap-2">
-						<Switch bind:checked={useFlats} />
+						<Switch bind:checked={s.useFlats} />
 						<span class="text-sm text-muted-foreground">Flats</span>
 					</label>
 				</div>
@@ -418,13 +384,18 @@
 				<div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
 					<!-- Key Selection -->
 					<div class="flex flex-col gap-1">
-						<span class="flex items-center gap-1 text-xs text-muted-foreground/70">
+						<span id="key-select-label" class="flex items-center gap-1 text-xs text-muted-foreground/70">
 							Key
 							<Zap class="h-3 w-3" />
 						</span>
-						<Select.Root type="single" bind:value={selectedKey}>
-							<Select.Trigger class="w-full sm:w-20" onwheel={scrollKey}>
-								{getDisplayNote(selectedKey, useFlats)}
+						<Select.Root type="single" bind:value={s.selectedKey}>
+							<Select.Trigger
+								class="w-full sm:w-20"
+								onwheel={scrollKey}
+								onkeydown={(e) => handleArrowKeys(e, chromaticScale, () => s.selectedKey, (v) => (s.selectedKey = v))}
+								aria-labelledby="key-select-label"
+							>
+								{getDisplayNote(s.selectedKey, s.useFlats)}
 							</Select.Trigger>
 							<Select.Content class="max-h-64 overflow-y-auto">
 								{#each chromaticScale as note (note)}
@@ -436,21 +407,23 @@
 
 					<!-- Major/Minor Toggle -->
 					<div class="flex flex-col gap-1">
-						<span class="text-xs text-muted-foreground/70">Mode</span>
-						<div class="flex items-center rounded-md border border-border bg-background p-1">
+						<span id="mode-toggle-label" class="text-xs text-muted-foreground/70">Mode</span>
+						<div class="flex items-center rounded-md border border-border bg-background p-1" role="group" aria-labelledby="mode-toggle-label">
 							<button
-								class="rounded px-2 py-1 text-sm transition-colors sm:px-3 {isMajor
+								class="rounded px-2 py-1 text-sm transition-colors sm:px-3 {s.isMajor
 									? 'bg-primary text-primary-foreground'
 									: 'text-muted-foreground hover:text-foreground'}"
-								onclick={() => (isMajor = true)}
+								onclick={() => (s.isMajor = true)}
+								aria-pressed={s.isMajor}
 							>
 								Major
 							</button>
 							<button
-								class="rounded px-2 py-1 text-sm transition-colors sm:px-3 {!isMajor
+								class="rounded px-2 py-1 text-sm transition-colors sm:px-3 {!s.isMajor
 									? 'bg-primary text-primary-foreground'
 									: 'text-muted-foreground hover:text-foreground'}"
-								onclick={() => (isMajor = false)}
+								onclick={() => (s.isMajor = false)}
+								aria-pressed={!s.isMajor}
 							>
 								Minor
 							</button>
@@ -459,13 +432,18 @@
 
 					<!-- Scale Type Selection -->
 					<div class="flex flex-col gap-1">
-						<span class="text-xs text-muted-foreground/70">Scale</span>
-						<Select.Root type="single" bind:value={selectedScale}>
-							<Select.Trigger class="w-full sm:w-36" onwheel={scrollScale}>
-								{#if selectedScale === 'melodic-minor'}
+						<span id="scale-select-label" class="text-xs text-muted-foreground/70">Scale</span>
+						<Select.Root type="single" bind:value={s.selectedScale}>
+							<Select.Trigger
+								class="w-full sm:w-36"
+								onwheel={scrollScale}
+								onkeydown={(e) => handleArrowKeys(e, SCALE_OPTIONS, () => s.selectedScale, (v) => (s.selectedScale = v))}
+								aria-labelledby="scale-select-label"
+							>
+								{#if s.selectedScale === 'melodic-minor'}
 									Melodic Minor
 								{:else}
-									{selectedScale.charAt(0).toUpperCase() + selectedScale.slice(1)}
+									{s.selectedScale.charAt(0).toUpperCase() + s.selectedScale.slice(1)}
 								{/if}
 							</Select.Trigger>
 							<Select.Content class="max-h-64 overflow-y-auto">
@@ -487,23 +465,28 @@
 					<!-- Apply Button -->
 					<div class="flex flex-col gap-1">
 						<span class="text-xs text-muted-foreground/70 opacity-0">Apply</span>
-						<Button onclick={applyScale} variant="secondary" class="h-9 w-full px-3 sm:w-auto" title="Apply scale">
+						<Button onclick={store.applyScale} variant="secondary" class="h-9 w-full px-3 sm:w-auto" title="Apply scale">
 							<Plus class="h-4 w-4" />
 						</Button>
 					</div>
 
 					<!-- Remove Scale Notes -->
 					<div class="col-span-2 flex flex-col gap-1 sm:col-span-1">
-						<span class="text-xs text-muted-foreground/70">Remove</span>
+						<span id="remove-scale-label" class="text-xs text-muted-foreground/70">Remove</span>
 						<div class="flex gap-1">
-							<Select.Root type="single" bind:value={scaleToRemove}>
-								<Select.Trigger class="h-9 flex-1 sm:w-28 sm:flex-none" onwheel={scrollRemoveScale}>
-									{#if scaleToRemove === '3nps'}
+							<Select.Root type="single" bind:value={s.scaleToRemove}>
+								<Select.Trigger
+									class="h-9 flex-1 sm:w-28 sm:flex-none"
+									onwheel={scrollRemoveScale}
+									onkeydown={(e) => handleArrowKeys(e, REMOVE_SCALE_OPTIONS, () => s.scaleToRemove, (v) => (s.scaleToRemove = v))}
+									aria-labelledby="remove-scale-label"
+								>
+									{#if s.scaleToRemove === '3nps'}
 										3NPS
-									{:else if scaleToRemove === 'melodic-minor'}
+									{:else if s.scaleToRemove === 'melodic-minor'}
 										Mel. Minor
 									{:else}
-										{scaleToRemove.charAt(0).toUpperCase() + scaleToRemove.slice(1)}
+										{s.scaleToRemove.charAt(0).toUpperCase() + s.scaleToRemove.slice(1)}
 									{/if}
 								</Select.Trigger>
 								<Select.Content class="max-h-64 overflow-y-auto">
@@ -518,7 +501,7 @@
 									<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
 								</Select.Content>
 							</Select.Root>
-							<Button onclick={removeScaleNotes} variant="secondary" class="h-9 px-2">
+							<Button onclick={store.removeScaleNotes} variant="secondary" class="h-9 px-2" aria-label="Remove scale notes">
 								<Minus class="h-4 w-4" />
 							</Button>
 						</div>
@@ -544,31 +527,40 @@
 				<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
 					<!-- Pentatonic shapes toggle -->
 					<label class="flex cursor-pointer items-center gap-2">
-						<Switch bind:checked={showShapeBoxes} />
+						<Switch bind:checked={s.showShapeBoxes} />
 						<span class="text-sm text-muted-foreground">Pentatonic Shapes</span>
 					</label>
 
 					<!-- 3NPS shapes toggle -->
 					<label class="flex cursor-pointer items-center gap-2">
-						<Switch bind:checked={show3NPSShapeBoxes} />
+						<Switch bind:checked={s.show3NPSShapeBoxes} />
 						<span class="text-sm text-muted-foreground">3NPS Shapes</span>
 					</label>
 
 					<!-- 3NPS Shape Selector -->
 					<Select.Root
 						type="single"
-						disabled={!show3NPSShapeBoxes}
-						value={selected3NPSShape.toString()}
+						disabled={!s.show3NPSShapeBoxes}
+						value={s.selected3NPSShape.toString()}
 						onValueChange={(v) => {
-							selected3NPSShape = parseInt(v);
-							update3NPSShape();
+							s.selected3NPSShape = parseInt(v);
+							store.recalculateShapes();
 						}}
 					>
 						<Select.Trigger
-							class="w-full sm:w-28 {!show3NPSShapeBoxes ? 'opacity-50' : ''}"
-							onwheel={show3NPSShapeBoxes ? scroll3NPSShape : undefined}
+							class="w-full sm:w-28 {!s.show3NPSShapeBoxes ? 'opacity-50' : ''}"
+							onwheel={s.show3NPSShapeBoxes ? scroll3NPSShape : undefined}
+							onkeydown={s.show3NPSShapeBoxes
+								? (e) => handleArrowKeys(
+									e,
+									THREE_NPS_OPTIONS,
+									() => s.selected3NPSShape.toString(),
+									(v) => { s.selected3NPSShape = parseInt(v); store.recalculateShapes(); }
+								)
+								: undefined}
+							aria-label="3NPS shape number"
 						>
-							Shape {selected3NPSShape}
+							Shape {s.selected3NPSShape}
 						</Select.Trigger>
 						<Select.Content class="max-h-64 overflow-y-auto">
 							<Select.Item value="1">Shape 1</Select.Item>
@@ -589,14 +581,19 @@
 				<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
 					<!-- Tuning Preset Selection -->
 					<div class="flex flex-col gap-1">
-						<span class="text-xs text-muted-foreground/70">Preset</span>
+						<span id="tuning-preset-label" class="text-xs text-muted-foreground/70">Preset</span>
 						<Select.Root
 							type="single"
-							value={selectedTuningPreset}
-							onValueChange={(v) => applyTuningPreset(v)}
+							value={s.selectedTuningPreset}
+							onValueChange={(v) => store.applyTuningPreset(v)}
 						>
-							<Select.Trigger class="w-full sm:w-44" onwheel={scrollTuning}>
-								{TUNING_PRESET_NAMES[selectedTuningPreset] || 'Custom'}
+							<Select.Trigger
+								class="w-full sm:w-44"
+								onwheel={scrollTuning}
+								onkeydown={(e) => handleArrowKeys(e, tuningPresetKeys, () => s.selectedTuningPreset, (v) => store.applyTuningPreset(v))}
+								aria-labelledby="tuning-preset-label"
+							>
+								{TUNING_PRESET_NAMES[s.selectedTuningPreset] || 'Custom'}
 							</Select.Trigger>
 							<Select.Content class="max-h-64 overflow-y-auto">
 								{#each Object.entries(TUNING_PRESET_NAMES) as [key, name] (key)}
@@ -608,24 +605,35 @@
 
 					<!-- Individual String Tuning -->
 					<div class="flex flex-col gap-1">
-						<span class="text-xs text-muted-foreground/70">Individual Strings (low → high)</span>
-						<div class="grid grid-cols-6 gap-1">
+						<span id="string-tuning-label" class="text-xs text-muted-foreground/70">Individual Strings (low → high)</span>
+						<div class="grid grid-cols-6 gap-1" role="group" aria-labelledby="string-tuning-label">
 							{#each [5, 4, 3, 2, 1, 0] as stringIndex (stringIndex)}
 								<Select.Root
 									type="single"
-									value={strings[stringIndex]}
+									value={s.strings[stringIndex]}
 									onValueChange={(v) => {
-										strings[stringIndex] = v;
-										strings = [...strings];
-										selectedTuningPreset = 'custom';
-										pushHistory(true);
+										s.strings[stringIndex] = v;
+										s.strings = [...s.strings];
+										s.selectedTuningPreset = 'custom';
+										store.pushHistory(true);
 									}}
 								>
 									<Select.Trigger
 										class="h-9 w-full justify-center px-1 sm:w-14 [&>svg]:hidden"
 										onwheel={(e) => scrollStringTuning(e, stringIndex)}
+										onkeydown={(e) => handleArrowKeys(
+											e,
+											chromaticScale,
+											() => s.strings[stringIndex],
+											(v) => {
+												s.strings[stringIndex] = v;
+												s.strings = [...s.strings];
+												s.selectedTuningPreset = 'custom';
+												store.pushHistory(true);
+											}
+										)}
 									>
-										<span class="w-full text-center">{getDisplayNote(strings[stringIndex], useFlats)}</span>
+										<span class="w-full text-center">{getDisplayNote(s.strings[stringIndex], s.useFlats)}</span>
 									</Select.Trigger>
 									<Select.Content class="max-h-64 overflow-y-auto">
 										{#each chromaticScale as note (note)}
@@ -641,7 +649,7 @@
 
 			<!-- Clear All Button -->
 			<div class="border-t border-border/50 pt-3 sm:pt-4">
-				<Button variant="secondary" onclick={clearAll} class="w-full">Clear All Notes</Button>
+				<Button variant="secondary" onclick={store.clearAll} class="w-full">Clear All Notes</Button>
 			</div>
 		</div>
 	</Collapsible.Content>

@@ -1,4 +1,3 @@
-import { browser } from '$app/environment';
 import type { ActiveShape, HistoryState, Preset } from './types';
 import {
 	FRET_COUNT,
@@ -11,96 +10,102 @@ import {
 	getStringBaseNotes,
 	getNoteIndex,
 	getScaleNotes,
-	getChromaticScale,
-	transposeNotes
+	getChromaticScale
 } from './music-utils';
 import { calculatePentatonicShapes, calculate3NPSShapes } from './shape-utils';
 import { loadState, saveState, loadPresets, savePresets, loadHistory, saveHistory } from './storage';
 
 // Create a singleton store for the fretboard state
 function createFretboardStore() {
-	// Core state
-	let selectedFrets = $state<Record<string, string>>({});
-	let strings = $state<string[]>(['E', 'B', 'G', 'D', 'A', 'E']);
-	let selectedTuningPreset = $state('standard');
+	// Unified state object - all reactive state in one place
+	const state = $state({
+		// Core state
+		selectedFrets: {} as Record<string, string>,
+		strings: ['E', 'B', 'G', 'D', 'A', 'E'] as string[],
+		selectedTuningPreset: 'standard',
 
-	// Scale settings
-	let selectedKey = $state('C');
-	let previousKey = $state('C');
-	let isMajor = $state(true);
-	let previousIsMajor = $state(true);
-	let appliedIsMajor = $state(true);
-	let selectedScale = $state('pentatonic');
-	let lastAppliedScale = $state<string | null>(null);
-	let scaleToRemove = $state('ionian');
+		// Scale settings
+		selectedKey: 'C',
+		previousKey: 'C',
+		isMajor: true,
+		previousIsMajor: true,
+		appliedIsMajor: true,
+		selectedScale: 'pentatonic',
+		lastAppliedScale: null as string | null,
+		scaleToRemove: 'ionian',
 
-	// Display settings
-	let showIntervals = $state(false);
-	let useFlats = $state(false);
-	let eraseSelectedColorOnly = $state(false);
+		// Display settings
+		showIntervals: false,
+		useFlats: false,
+		eraseSelectedColorOnly: false,
 
-	// Color settings
-	let selectedColor = $state(PRESET_COLORS[0]);
-	let customColor = $state('#ffffff');
+		// Color settings
+		selectedColor: PRESET_COLORS[0],
+		customColor: '#ffffff',
 
-	// Shape settings
-	let showShapeBoxes = $state(true);
-	let show3NPSShapeBoxes = $state(true);
-	let selected3NPSShape = $state(1);
-	let activeShapes = $state<ActiveShape[]>([]);
-	let active3NPSShapes = $state<ActiveShape[]>([]);
+		// Shape settings
+		showShapeBoxes: true,
+		show3NPSShapeBoxes: true,
+		selected3NPSShape: 1,
+		activeShapes: [] as ActiveShape[],
+		active3NPSShapes: [] as ActiveShape[],
 
-	// Painting state
-	let isPainting = $state(false);
-	let paintMode = $state<'add' | 'remove'>('add');
+		// Painting state
+		isPainting: false,
+		paintMode: 'add' as 'add' | 'remove',
 
-	// UI state
-	let settingsOpen = $state(true);
+		// UI state
+		settingsOpen: true,
 
-	// Preset management
-	let savedPresets = $state<Record<string, Preset>>({});
-	let presetName = $state('');
-	let selectedPresetName = $state('');
+		// Preset management
+		savedPresets: {} as Record<string, Preset>,
+		presetName: '',
+		selectedPresetName: '',
 
-	// History state
-	let historyStack = $state<HistoryState[]>([]);
-	let redoStack = $state<HistoryState[]>([]);
-	let isUndoRedoAction = $state(false);
+		// History state
+		historyStack: [] as HistoryState[],
+		redoStack: [] as HistoryState[],
+		isUndoRedoAction: false,
+
+		// Loading state
+		isLoaded: false
+	});
+
+	// Debounce timer (not reactive)
 	let historyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	// Loading state
-	let isLoaded = $state(false);
-
 	// Derived state
-	const chromaticScale = $derived(getChromaticScale(useFlats));
-	const stringBaseNotes = $derived(getStringBaseNotes(strings));
+	const chromaticScale = $derived(getChromaticScale(state.useFlats));
+	const stringBaseNotes = $derived(getStringBaseNotes(state.strings));
+	const canUndo = $derived(state.historyStack.length > 1);
+	const canRedo = $derived(state.redoStack.length > 0);
 
 	// Capture current state
 	function captureState(): HistoryState {
 		return {
-			selectedFrets: { ...selectedFrets },
-			selectedKey,
-			isMajor,
-			appliedIsMajor,
-			selectedScale,
-			selectedColor,
-			customColor,
-			showShapeBoxes,
-			show3NPSShapeBoxes,
-			selected3NPSShape,
-			showIntervals,
-			useFlats,
-			eraseSelectedColorOnly,
-			lastAppliedScale,
-			scaleToRemove,
-			strings: [...strings],
-			selectedTuningPreset
+			selectedFrets: { ...state.selectedFrets },
+			selectedKey: state.selectedKey,
+			isMajor: state.isMajor,
+			appliedIsMajor: state.appliedIsMajor,
+			selectedScale: state.selectedScale,
+			selectedColor: state.selectedColor,
+			customColor: state.customColor,
+			showShapeBoxes: state.showShapeBoxes,
+			show3NPSShapeBoxes: state.show3NPSShapeBoxes,
+			selected3NPSShape: state.selected3NPSShape,
+			showIntervals: state.showIntervals,
+			useFlats: state.useFlats,
+			eraseSelectedColorOnly: state.eraseSelectedColorOnly,
+			lastAppliedScale: state.lastAppliedScale,
+			scaleToRemove: state.scaleToRemove,
+			strings: [...state.strings],
+			selectedTuningPreset: state.selectedTuningPreset
 		};
 	}
 
 	// Push to history
 	function pushHistory(immediate = false) {
-		if (isUndoRedoAction || !isLoaded) return;
+		if (state.isUndoRedoAction || !state.isLoaded) return;
 
 		if (historyDebounceTimer) {
 			clearTimeout(historyDebounceTimer);
@@ -109,16 +114,16 @@ function createFretboardStore() {
 		const doSave = () => {
 			const currentState = captureState();
 
-			if (historyStack.length > 0) {
-				const lastState = historyStack[historyStack.length - 1];
+			if (state.historyStack.length > 0) {
+				const lastState = state.historyStack[state.historyStack.length - 1];
 				if (JSON.stringify(currentState) === JSON.stringify(lastState)) {
 					return;
 				}
 			}
 
-			historyStack = [...historyStack, currentState].slice(-MAX_HISTORY_SIZE);
-			redoStack = [];
-			saveHistory(historyStack, redoStack);
+			state.historyStack = [...state.historyStack, currentState].slice(-MAX_HISTORY_SIZE);
+			state.redoStack = [];
+			saveHistory(state.historyStack, state.redoStack);
 		};
 
 		if (immediate) {
@@ -129,134 +134,137 @@ function createFretboardStore() {
 	}
 
 	// Restore state from snapshot
-	function restoreState(state: HistoryState) {
-		selectedFrets = { ...state.selectedFrets };
-		selectedKey = state.selectedKey;
-		previousKey = state.selectedKey;
-		isMajor = state.isMajor;
-		previousIsMajor = state.isMajor;
-		appliedIsMajor = state.appliedIsMajor ?? state.isMajor;
-		selectedScale = state.selectedScale;
-		selectedColor = state.selectedColor;
-		customColor = state.customColor;
-		showShapeBoxes = state.showShapeBoxes;
-		show3NPSShapeBoxes = state.show3NPSShapeBoxes;
-		selected3NPSShape = state.selected3NPSShape;
-		showIntervals = state.showIntervals;
-		useFlats = state.useFlats ?? false;
-		eraseSelectedColorOnly = state.eraseSelectedColorOnly;
-		lastAppliedScale = state.lastAppliedScale;
-		scaleToRemove = state.scaleToRemove;
-		strings = state.strings ? [...state.strings] : ['E', 'B', 'G', 'D', 'A', 'E'];
-		selectedTuningPreset = state.selectedTuningPreset || 'standard';
+	function restoreState(snapshot: HistoryState) {
+		state.selectedFrets = { ...snapshot.selectedFrets };
+		state.selectedKey = snapshot.selectedKey;
+		state.previousKey = snapshot.selectedKey;
+		state.isMajor = snapshot.isMajor;
+		state.previousIsMajor = snapshot.isMajor;
+		state.appliedIsMajor = snapshot.appliedIsMajor ?? snapshot.isMajor;
+		state.selectedScale = snapshot.selectedScale;
+		state.selectedColor = snapshot.selectedColor;
+		state.customColor = snapshot.customColor;
+		state.showShapeBoxes = snapshot.showShapeBoxes;
+		state.show3NPSShapeBoxes = snapshot.show3NPSShapeBoxes;
+		state.selected3NPSShape = snapshot.selected3NPSShape;
+		state.showIntervals = snapshot.showIntervals;
+		state.useFlats = snapshot.useFlats ?? false;
+		state.eraseSelectedColorOnly = snapshot.eraseSelectedColorOnly;
+		state.lastAppliedScale = snapshot.lastAppliedScale;
+		state.scaleToRemove = snapshot.scaleToRemove;
+		state.strings = snapshot.strings ? [...snapshot.strings] : ['E', 'B', 'G', 'D', 'A', 'E'];
+		state.selectedTuningPreset = snapshot.selectedTuningPreset || 'standard';
 
 		recalculateShapes();
 	}
 
 	// Recalculate shapes based on current state
 	function recalculateShapes() {
-		if (selectedTuningPreset === 'standard') {
-			activeShapes = calculatePentatonicShapes(selectedKey, isMajor, stringBaseNotes);
-			if (show3NPSShapeBoxes) {
-				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape, isMajor, stringBaseNotes);
+		if (state.selectedTuningPreset === 'standard') {
+			state.activeShapes = calculatePentatonicShapes(state.selectedKey, state.isMajor, stringBaseNotes);
+			if (state.show3NPSShapeBoxes) {
+				state.active3NPSShapes = calculate3NPSShapes(state.selectedKey, state.selected3NPSShape, state.isMajor, stringBaseNotes);
 			} else {
-				active3NPSShapes = [];
+				state.active3NPSShapes = [];
 			}
 		} else {
-			activeShapes = [];
-			active3NPSShapes = [];
+			state.activeShapes = [];
+			state.active3NPSShapes = [];
 		}
 	}
 
 	// Undo/Redo
 	function undo() {
-		if (historyStack.length <= 1) return;
-		isUndoRedoAction = true;
+		if (state.historyStack.length <= 1) return;
+		state.isUndoRedoAction = true;
 
-		const currentState = historyStack[historyStack.length - 1];
-		redoStack = [...redoStack, currentState];
-		historyStack = historyStack.slice(0, -1);
+		const currentState = state.historyStack[state.historyStack.length - 1];
+		state.redoStack = [...state.redoStack, currentState];
+		state.historyStack = state.historyStack.slice(0, -1);
 
-		const previousState = historyStack[historyStack.length - 1];
+		const previousState = state.historyStack[state.historyStack.length - 1];
 		restoreState(previousState);
-		saveHistory(historyStack, redoStack);
+		saveHistory(state.historyStack, state.redoStack);
 
-		isUndoRedoAction = false;
+		state.isUndoRedoAction = false;
 	}
 
 	function redo() {
-		if (redoStack.length === 0) return;
-		isUndoRedoAction = true;
+		if (state.redoStack.length === 0) return;
+		state.isUndoRedoAction = true;
 
-		const nextState = redoStack[redoStack.length - 1];
-		redoStack = redoStack.slice(0, -1);
-		historyStack = [...historyStack, nextState];
+		const nextState = state.redoStack[state.redoStack.length - 1];
+		state.redoStack = state.redoStack.slice(0, -1);
+		state.historyStack = [...state.historyStack, nextState];
 
 		restoreState(nextState);
-		saveHistory(historyStack, redoStack);
+		saveHistory(state.historyStack, state.redoStack);
 
-		isUndoRedoAction = false;
-	}
-
-	function canUndo() {
-		return historyStack.length > 1;
-	}
-
-	function canRedo() {
-		return redoStack.length > 0;
+		state.isUndoRedoAction = false;
 	}
 
 	// Tuning functions
 	function applyTuningPreset(presetKey: string) {
-		if (TUNING_PRESETS[presetKey]) {
-			selectedTuningPreset = presetKey;
-			strings = [...TUNING_PRESETS[presetKey]];
-			pushHistory(true);
-		}
+		if (!presetKey || typeof presetKey !== 'string') return;
+		const preset = TUNING_PRESETS[presetKey];
+		if (!preset || !Array.isArray(preset) || preset.length === 0) return;
+
+		state.selectedTuningPreset = presetKey;
+		state.strings = [...preset];
+		pushHistory(true);
 	}
 
 	function changeStringTuning(stringIndex: number, direction: number) {
-		const currentNote = strings[stringIndex];
+		const currentNote = state.strings[stringIndex];
 		const currentIdx = getNoteIndex(currentNote);
 		const newIdx = (currentIdx + direction + 12) % 12;
-		strings[stringIndex] = chromaticScale[newIdx];
-		strings = [...strings];
-		selectedTuningPreset = 'custom';
+		state.strings[stringIndex] = chromaticScale[newIdx];
+		state.strings = [...state.strings];
+		state.selectedTuningPreset = 'custom';
 		pushHistory(true);
 	}
 
 	// Apply scale to fretboard
 	function applyScale() {
-		const scaleNotes = getScaleNotes(selectedKey, isMajor, selectedScale);
-		const shouldLayer = selectedScale === 'pentatonic' || lastAppliedScale === 'pentatonic';
+		// Validate inputs
+		if (!state.selectedKey || !state.selectedScale) return;
+
+		const scaleNotes = getScaleNotes(state.selectedKey, state.isMajor, state.selectedScale);
+		if (scaleNotes.size === 0) return; // Invalid scale
+
+		const shouldLayer = state.selectedScale === 'pentatonic' || state.lastAppliedScale === 'pentatonic';
 
 		if (!shouldLayer) {
-			selectedFrets = {};
+			state.selectedFrets = {};
 		}
 
 		recalculateShapes();
 
-		for (let stringIndex = 0; stringIndex < strings.length; stringIndex++) {
+		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
 			for (let fretIndex = 0; fretIndex <= FRET_COUNT; fretIndex++) {
 				const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
 				if (scaleNotes.has(noteIndex)) {
 					const key = `${stringIndex}-${fretIndex}`;
-					if (!selectedFrets[key]) {
-						selectedFrets[key] = selectedColor;
+					if (!state.selectedFrets[key]) {
+						state.selectedFrets[key] = state.selectedColor;
 					}
 				}
 			}
 		}
 
-		lastAppliedScale = shouldLayer ? 'pentatonic' : selectedScale;
-		appliedIsMajor = isMajor;
+		state.lastAppliedScale = shouldLayer ? 'pentatonic' : state.selectedScale;
+		state.appliedIsMajor = state.isMajor;
 		pushHistory(true);
 	}
 
 	// Remove scale notes
 	function removeScaleNotes() {
-		const pentatonicNotes = getScaleNotes(selectedKey, isMajor, 'pentatonic');
-		const scaleNotes = getScaleNotes(selectedKey, isMajor, scaleToRemove);
+		// Validate inputs
+		if (!state.selectedKey || !state.scaleToRemove) return;
+
+		const pentatonicNotes = getScaleNotes(state.selectedKey, state.isMajor, 'pentatonic');
+		const scaleNotes = getScaleNotes(state.selectedKey, state.isMajor, state.scaleToRemove);
+		if (scaleNotes.size === 0) return; // Invalid scale
 
 		const extraNotes = new Set<number>();
 		for (const note of scaleNotes) {
@@ -265,227 +273,187 @@ function createFretboardStore() {
 			}
 		}
 
-		for (let stringIndex = 0; stringIndex < strings.length; stringIndex++) {
+		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
 			for (let fretIndex = 0; fretIndex <= FRET_COUNT; fretIndex++) {
 				const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
 				if (extraNotes.has(noteIndex)) {
-					delete selectedFrets[`${stringIndex}-${fretIndex}`];
+					delete state.selectedFrets[`${stringIndex}-${fretIndex}`];
 				}
 			}
 		}
 
-		selectedFrets = { ...selectedFrets };
+		state.selectedFrets = { ...state.selectedFrets };
 		pushHistory(true);
 	}
 
 	// Clear functions
 	function clearAll() {
-		selectedFrets = {};
-		lastAppliedScale = null;
+		state.selectedFrets = {};
+		state.lastAppliedScale = null;
 		recalculateShapes();
 		pushHistory(true);
 	}
 
 	function clearString(stringIndex: number) {
 		for (let i = 0; i <= FRET_COUNT; i++) {
-			delete selectedFrets[`${stringIndex}-${i}`];
+			delete state.selectedFrets[`${stringIndex}-${i}`];
 		}
 		pushHistory(true);
 	}
 
 	function selectString(stringIndex: number) {
 		for (let i = 0; i <= FRET_COUNT; i++) {
-			selectedFrets[`${stringIndex}-${i}`] = selectedColor;
+			state.selectedFrets[`${stringIndex}-${i}`] = state.selectedColor;
 		}
 		pushHistory(true);
 	}
 
 	// Painting functions
 	function isSelected(stringIndex: number, fretIndex: number): boolean {
-		return !!selectedFrets[`${stringIndex}-${fretIndex}`];
+		return !!state.selectedFrets[`${stringIndex}-${fretIndex}`];
 	}
 
 	function getNoteColor(stringIndex: number, fretIndex: number): string {
-		return selectedFrets[`${stringIndex}-${fretIndex}`] || selectedColor;
+		return state.selectedFrets[`${stringIndex}-${fretIndex}`] || state.selectedColor;
 	}
 
 	function startPainting(stringIndex: number, fretIndex: number) {
-		isPainting = true;
-		paintMode = isSelected(stringIndex, fretIndex) ? 'remove' : 'add';
+		state.isPainting = true;
+		state.paintMode = isSelected(stringIndex, fretIndex) ? 'remove' : 'add';
 		applyPaint(stringIndex, fretIndex);
 	}
 
 	function stopPainting() {
-		if (isPainting) {
+		if (state.isPainting) {
 			pushHistory(true);
 		}
-		isPainting = false;
+		state.isPainting = false;
 	}
 
 	function applyPaint(stringIndex: number, fretIndex: number) {
 		const key = `${stringIndex}-${fretIndex}`;
-		if (paintMode === 'add') {
-			selectedFrets[key] = selectedColor;
+		if (state.paintMode === 'add') {
+			state.selectedFrets[key] = state.selectedColor;
 		} else {
-			if (!eraseSelectedColorOnly || selectedFrets[key] === selectedColor) {
-				delete selectedFrets[key];
+			if (!state.eraseSelectedColorOnly || state.selectedFrets[key] === state.selectedColor) {
+				delete state.selectedFrets[key];
 			}
 		}
 	}
 
 	function handlePaintOver(stringIndex: number, fretIndex: number) {
-		if (isPainting) {
+		if (state.isPainting) {
 			applyPaint(stringIndex, fretIndex);
 		}
 	}
 
 	// Preset functions
 	function savePreset() {
-		if (!presetName.trim()) return;
+		if (!state.presetName.trim()) return;
 
 		const preset: Preset = captureState();
-		savedPresets[presetName.trim()] = preset;
-		savedPresets = { ...savedPresets };
-		savePresets(savedPresets);
+		state.savedPresets[state.presetName.trim()] = preset;
+		state.savedPresets = { ...state.savedPresets };
+		savePresets(state.savedPresets);
 
-		selectedPresetName = presetName.trim();
-		presetName = '';
+		state.selectedPresetName = state.presetName.trim();
+		state.presetName = '';
 	}
 
 	function loadPreset() {
-		if (!selectedPresetName || !savedPresets[selectedPresetName]) return;
-		restoreState(savedPresets[selectedPresetName]);
+		if (!state.selectedPresetName || !state.savedPresets[state.selectedPresetName]) return;
+		restoreState(state.savedPresets[state.selectedPresetName]);
 		pushHistory(true);
 	}
 
 	function deletePreset() {
-		if (!selectedPresetName || !savedPresets[selectedPresetName]) return;
-		delete savedPresets[selectedPresetName];
-		savedPresets = { ...savedPresets };
-		savePresets(savedPresets);
-		selectedPresetName = '';
+		if (!state.selectedPresetName || !state.savedPresets[state.selectedPresetName]) return;
+		delete state.savedPresets[state.selectedPresetName];
+		state.savedPresets = { ...state.savedPresets };
+		savePresets(state.savedPresets);
+		state.selectedPresetName = '';
 	}
 
 	// Initialize store
 	function initialize() {
-		// Load saved state
 		const saved = loadState();
 		if (saved) {
-			if (saved.selectedFrets) selectedFrets = saved.selectedFrets;
+			if (saved.selectedFrets) state.selectedFrets = saved.selectedFrets;
 			if (saved.selectedKey) {
-				selectedKey = saved.selectedKey;
-				previousKey = saved.selectedKey;
+				state.selectedKey = saved.selectedKey;
+				state.previousKey = saved.selectedKey;
 			}
 			if (saved.isMajor !== undefined) {
-				isMajor = saved.isMajor;
-				previousIsMajor = saved.isMajor;
+				state.isMajor = saved.isMajor;
+				state.previousIsMajor = saved.isMajor;
 			}
 			if (saved.appliedIsMajor !== undefined) {
-				appliedIsMajor = saved.appliedIsMajor;
+				state.appliedIsMajor = saved.appliedIsMajor;
 			}
-			if (saved.selectedScale) selectedScale = saved.selectedScale;
-			if (saved.selectedColor) selectedColor = saved.selectedColor;
-			if (saved.customColor) customColor = saved.customColor;
-			if (saved.showShapeBoxes !== undefined) showShapeBoxes = saved.showShapeBoxes;
-			if (saved.show3NPSShapeBoxes !== undefined) show3NPSShapeBoxes = saved.show3NPSShapeBoxes;
-			if (saved.selected3NPSShape !== undefined) selected3NPSShape = saved.selected3NPSShape;
-			if (saved.showIntervals !== undefined) showIntervals = saved.showIntervals;
-			if (saved.useFlats !== undefined) useFlats = saved.useFlats;
-			if (saved.eraseSelectedColorOnly !== undefined) eraseSelectedColorOnly = saved.eraseSelectedColorOnly;
-			if (saved.lastAppliedScale !== undefined) lastAppliedScale = saved.lastAppliedScale;
-			if (saved.scaleToRemove) scaleToRemove = saved.scaleToRemove;
-			if (saved.strings) strings = saved.strings;
-			if (saved.selectedTuningPreset) selectedTuningPreset = saved.selectedTuningPreset;
+			if (saved.selectedScale) state.selectedScale = saved.selectedScale;
+			if (saved.selectedColor) state.selectedColor = saved.selectedColor;
+			if (saved.customColor) state.customColor = saved.customColor;
+			if (saved.showShapeBoxes !== undefined) state.showShapeBoxes = saved.showShapeBoxes;
+			if (saved.show3NPSShapeBoxes !== undefined) state.show3NPSShapeBoxes = saved.show3NPSShapeBoxes;
+			if (saved.selected3NPSShape !== undefined) state.selected3NPSShape = saved.selected3NPSShape;
+			if (saved.showIntervals !== undefined) state.showIntervals = saved.showIntervals;
+			if (saved.useFlats !== undefined) state.useFlats = saved.useFlats;
+			if (saved.eraseSelectedColorOnly !== undefined) state.eraseSelectedColorOnly = saved.eraseSelectedColorOnly;
+			if (saved.lastAppliedScale !== undefined) state.lastAppliedScale = saved.lastAppliedScale;
+			if (saved.scaleToRemove) state.scaleToRemove = saved.scaleToRemove;
+			if (saved.strings) state.strings = saved.strings;
+			if (saved.selectedTuningPreset) state.selectedTuningPreset = saved.selectedTuningPreset;
 		}
 
-		// Load presets
-		savedPresets = loadPresets();
+		state.savedPresets = loadPresets();
 
-		// Load history
 		const { history, redo } = loadHistory();
-		historyStack = history;
-		redoStack = redo;
+		state.historyStack = history;
+		state.redoStack = redo;
 
-		isLoaded = true;
+		state.isLoaded = true;
 
-		// Calculate initial shapes
 		recalculateShapes();
 
-		// Save initial state if history is empty
-		if (historyStack.length === 0) {
-			historyStack = [captureState()];
-			saveHistory(historyStack, redoStack);
+		if (state.historyStack.length === 0) {
+			state.historyStack = [captureState()];
+			saveHistory(state.historyStack, state.redoStack);
 		}
 	}
 
-	// Auto-save effect (call this from component)
+	// Auto-save effect
 	function setupAutoSave() {
 		$effect(() => {
-			if (!isLoaded) return;
+			if (!state.isLoaded) return;
 			saveState(captureState());
 		});
 	}
 
+	// Cleanup function
+	function cleanup() {
+		if (historyDebounceTimer) {
+			clearTimeout(historyDebounceTimer);
+			historyDebounceTimer = null;
+		}
+	}
+
 	return {
-		// State getters (using getters for reactivity)
-		get selectedFrets() { return selectedFrets; },
-		get strings() { return strings; },
-		get selectedTuningPreset() { return selectedTuningPreset; },
-		get selectedKey() { return selectedKey; },
-		get isMajor() { return isMajor; },
-		get appliedIsMajor() { return appliedIsMajor; },
-		get selectedScale() { return selectedScale; },
-		get lastAppliedScale() { return lastAppliedScale; },
-		get scaleToRemove() { return scaleToRemove; },
-		get showIntervals() { return showIntervals; },
-		get useFlats() { return useFlats; },
-		get eraseSelectedColorOnly() { return eraseSelectedColorOnly; },
-		get selectedColor() { return selectedColor; },
-		get customColor() { return customColor; },
-		get showShapeBoxes() { return showShapeBoxes; },
-		get show3NPSShapeBoxes() { return show3NPSShapeBoxes; },
-		get selected3NPSShape() { return selected3NPSShape; },
-		get activeShapes() { return activeShapes; },
-		get active3NPSShapes() { return active3NPSShapes; },
-		get isPainting() { return isPainting; },
-		get paintMode() { return paintMode; },
-		get settingsOpen() { return settingsOpen; },
-		get savedPresets() { return savedPresets; },
-		get presetName() { return presetName; },
-		get selectedPresetName() { return selectedPresetName; },
-		get isLoaded() { return isLoaded; },
+		// Expose state object directly for reactive access
+		state,
+
+		// Derived values (read-only)
 		get chromaticScale() { return chromaticScale; },
 		get stringBaseNotes() { return stringBaseNotes; },
-
-		// State setters
-		set selectedKey(v: string) { selectedKey = v; },
-		set previousKey(v: string) { previousKey = v; },
-		set isMajor(v: boolean) { isMajor = v; },
-		set previousIsMajor(v: boolean) { previousIsMajor = v; },
-		set selectedScale(v: string) { selectedScale = v; },
-		set scaleToRemove(v: string) { scaleToRemove = v; },
-		set showIntervals(v: boolean) { showIntervals = v; },
-		set useFlats(v: boolean) { useFlats = v; },
-		set eraseSelectedColorOnly(v: boolean) { eraseSelectedColorOnly = v; },
-		set selectedColor(v: string) { selectedColor = v; },
-		set customColor(v: string) { customColor = v; },
-		set showShapeBoxes(v: boolean) { showShapeBoxes = v; },
-		set show3NPSShapeBoxes(v: boolean) { show3NPSShapeBoxes = v; },
-		set selected3NPSShape(v: number) { selected3NPSShape = v; },
-		set settingsOpen(v: boolean) { settingsOpen = v; },
-		set presetName(v: string) { presetName = v; },
-		set selectedPresetName(v: string) { selectedPresetName = v; },
-		set selectedTuningPreset(v: string) { selectedTuningPreset = v; },
-		set strings(v: string[]) { strings = v; },
+		get canUndo() { return canUndo; },
+		get canRedo() { return canRedo; },
 
 		// Actions
 		initialize,
 		setupAutoSave,
+		cleanup,
 		pushHistory,
 		undo,
 		redo,
-		canUndo,
-		canRedo,
 		applyTuningPreset,
 		changeStringTuning,
 		applyScale,

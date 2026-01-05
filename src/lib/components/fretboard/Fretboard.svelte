@@ -1,65 +1,69 @@
 <script lang="ts">
 	import * as ContextMenu from '$lib/components/ui/context-menu';
-	import { FRET_COUNT, SINGLE_DOT_FRETS, DOUBLE_DOT_FRETS } from '$lib/fretboard/constants';
+	import {
+		FRET_COUNT,
+		SINGLE_DOT_FRETS,
+		DOUBLE_DOT_FRETS,
+		STRING_THICKNESS_BASE,
+		STRING_THICKNESS_INCREMENT
+	} from '$lib/fretboard/constants';
 	import { getNoteDisplay } from '$lib/fretboard/music-utils';
 	import { getComplementaryColor } from '$lib/fretboard/color-utils';
 	import { isNoteIn3NPSShape } from '$lib/fretboard/shape-utils';
 	import ShapeOverlay from './ShapeOverlay.svelte';
-	import type { ActiveShape } from '$lib/fretboard/types';
+	import type { fretboardStore as FretboardStoreType } from '$lib/fretboard/store.svelte';
 
 	interface Props {
-		strings: string[];
-		stringBaseNotes: number[];
-		selectedFrets: Record<string, string>;
-		selectedKey: string;
-		showIntervals: boolean;
-		useFlats: boolean;
-		selectedColor: string;
-		showShapeBoxes: boolean;
-		show3NPSShapeBoxes: boolean;
-		activeShapes: ActiveShape[];
-		active3NPSShapes: ActiveShape[];
-		appliedIsMajor: boolean;
-		selectedTuningPreset: string;
-		isSelected: (stringIndex: number, fretIndex: number) => boolean;
-		getNoteColor: (stringIndex: number, fretIndex: number) => string;
-		startPainting: (stringIndex: number, fretIndex: number) => void;
-		handlePaintOver: (stringIndex: number, fretIndex: number) => void;
-		selectString: (stringIndex: number) => void;
-		clearString: (stringIndex: number) => void;
-		clearAll: () => void;
+		store: typeof FretboardStoreType;
 	}
 
-	let {
-		strings,
-		stringBaseNotes,
-		selectedFrets,
-		selectedKey,
-		showIntervals,
-		useFlats,
-		selectedColor,
-		showShapeBoxes,
-		show3NPSShapeBoxes,
-		activeShapes,
-		active3NPSShapes,
-		appliedIsMajor,
-		selectedTuningPreset,
-		isSelected,
-		getNoteColor,
-		startPainting,
-		handlePaintOver,
-		selectString,
-		clearString,
-		clearAll
-	}: Props = $props();
+	let { store }: Props = $props();
+
+	// Shorthand access to state
+	const s = $derived(store.state);
 
 	function getNoteDisplayText(stringIndex: number, fretIndex: number): string {
-		return getNoteDisplay(stringIndex, fretIndex, stringBaseNotes, selectedKey, showIntervals, useFlats);
+		return getNoteDisplay(stringIndex, fretIndex, store.stringBaseNotes, s.selectedKey, s.showIntervals, s.useFlats);
 	}
 
 	function checkNoteIn3NPSShape(stringIndex: number, fretIndex: number): boolean {
-		if (!show3NPSShapeBoxes) return false;
-		return isNoteIn3NPSShape(stringIndex, fretIndex, active3NPSShapes);
+		if (!s.show3NPSShapeBoxes) return false;
+		return isNoteIn3NPSShape(stringIndex, fretIndex, s.active3NPSShapes);
+	}
+
+	// Throttled touch handler state
+	let lastTouchTime = 0;
+	let lastTouchFret = -1;
+	let lastTouchString = -1;
+	const TOUCH_THROTTLE_MS = 16; // ~60fps
+
+	// Optimized touch handler - throttled with position caching
+	function handleTouchMove(e: TouchEvent) {
+		const now = performance.now();
+		if (now - lastTouchTime < TOUCH_THROTTLE_MS) return;
+		lastTouchTime = now;
+
+		const touch = e.touches[0];
+		const target = document.elementFromPoint(touch.clientX, touch.clientY);
+		const btn = target?.closest('button[data-fret]') as HTMLElement | null;
+		if (btn) {
+			const si = parseInt(btn.dataset.string || '-1', 10);
+			const fi = parseInt(btn.dataset.fret || '-1', 10);
+			// Skip if same position as last touch
+			if (si === lastTouchString && fi === lastTouchFret) return;
+			if (si >= 0 && fi >= 0) {
+				lastTouchString = si;
+				lastTouchFret = fi;
+				store.handlePaintOver(si, fi);
+			}
+		}
+	}
+
+	// Generate accessible label for a fret button
+	function getAriaLabel(stringIndex: number, fretIndex: number): string {
+		const note = getNoteDisplayText(stringIndex, fretIndex);
+		const selected = store.isSelected(stringIndex, fretIndex);
+		return `${s.strings[stringIndex]} string, fret ${fretIndex}, note ${note}${selected ? ', selected' : ''}`;
 	}
 </script>
 
@@ -70,13 +74,13 @@
 	<!-- Inner wrapper with fixed width to ensure proper scrolling -->
 	<div class="relative isolate bg-background px-6 pb-6 pt-12" style="min-width: 1464px;">
 		<!-- Pentatonic shape overlays (only in standard tuning) -->
-		{#if showShapeBoxes && activeShapes.length > 0 && selectedTuningPreset === 'standard'}
-			<ShapeOverlay shapes={activeShapes} type="pentatonic" {appliedIsMajor} />
+		{#if s.showShapeBoxes && s.activeShapes.length > 0 && s.selectedTuningPreset === 'standard'}
+			<ShapeOverlay shapes={s.activeShapes} type="pentatonic" appliedIsMajor={s.appliedIsMajor} />
 		{/if}
 
 		<!-- 3NPS shape overlays (only in standard tuning) -->
-		{#if show3NPSShapeBoxes && active3NPSShapes.length > 0 && selectedTuningPreset === 'standard'}
-			<ShapeOverlay shapes={active3NPSShapes} type="3nps" />
+		{#if s.show3NPSShapeBoxes && s.active3NPSShapes.length > 0 && s.selectedTuningPreset === 'standard'}
+			<ShapeOverlay shapes={s.active3NPSShapes} type="3nps" />
 		{/if}
 
 		<!-- Fret numbers -->
@@ -93,7 +97,7 @@
 		</div>
 
 		<!-- Strings -->
-		{#each strings as stringName, stringIndex (stringIndex)}
+		{#each s.strings as stringName, stringIndex (stringIndex)}
 			<ContextMenu.Root>
 				<ContextMenu.Trigger>
 					<div class="group relative flex items-center">
@@ -104,7 +108,7 @@
 						<!-- String line -->
 						<div
 							class="pointer-events-none absolute left-10 right-0 bg-gradient-to-r from-zinc-400 via-zinc-300 to-zinc-400"
-							style="height: {1 + stringIndex * 0.4}px;"
+							style="height: {STRING_THICKNESS_BASE + stringIndex * STRING_THICKNESS_INCREMENT}px;"
 						></div>
 
 						{#each { length: FRET_COUNT + 1 }, fretIndex (fretIndex)}
@@ -116,30 +120,17 @@
 								<!-- Circular hit area for painting -->
 								<button
 									class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
-									onmousedown={() => startPainting(stringIndex, fretIndex)}
-									onmouseenter={() => handlePaintOver(stringIndex, fretIndex)}
-									ontouchstart={() => startPainting(stringIndex, fretIndex)}
-									ontouchmove={(e) => {
-										const touch = e.touches[0];
-										const target = document.elementFromPoint(touch.clientX, touch.clientY);
-										if (target?.closest('button')) {
-											const btn = target.closest('button');
-											const parent = btn?.parentElement;
-											if (parent) {
-												const row = parent.parentElement;
-												const cells = row?.querySelectorAll(':scope > div');
-												if (cells) {
-													const cellIndex = Array.from(cells).indexOf(parent);
-													if (cellIndex >= 0) {
-														handlePaintOver(stringIndex, cellIndex);
-													}
-												}
-											}
-										}
-									}}
+									data-string={stringIndex}
+									data-fret={fretIndex}
+									aria-label={getAriaLabel(stringIndex, fretIndex)}
+									aria-pressed={store.isSelected(stringIndex, fretIndex)}
+									onmousedown={() => store.startPainting(stringIndex, fretIndex)}
+									onmouseenter={() => store.handlePaintOver(stringIndex, fretIndex)}
+									ontouchstart={() => store.startPainting(stringIndex, fretIndex)}
+									ontouchmove={handleTouchMove}
 								>
-									{#if isSelected(stringIndex, fretIndex)}
-										{@const noteColor = getNoteColor(stringIndex, fretIndex)}
+									{#if store.isSelected(stringIndex, fretIndex)}
+										{@const noteColor = store.getNoteColor(stringIndex, fretIndex)}
 										{@const inShape = checkNoteIn3NPSShape(stringIndex, fretIndex)}
 										{@const borderColor = inShape ? getComplementaryColor(noteColor) : 'white'}
 										<div
@@ -157,14 +148,14 @@
 					</div>
 				</ContextMenu.Trigger>
 				<ContextMenu.Content class="w-48">
-					<ContextMenu.Item onclick={() => selectString(stringIndex)}>
+					<ContextMenu.Item onclick={() => store.selectString(stringIndex)}>
 						Select all on {stringName} string
 					</ContextMenu.Item>
-					<ContextMenu.Item onclick={() => clearString(stringIndex)}>
+					<ContextMenu.Item onclick={() => store.clearString(stringIndex)}>
 						Clear {stringName} string
 					</ContextMenu.Item>
 					<ContextMenu.Separator />
-					<ContextMenu.Item onclick={clearAll}>Clear all</ContextMenu.Item>
+					<ContextMenu.Item onclick={store.clearAll}>Clear all</ContextMenu.Item>
 				</ContextMenu.Content>
 			</ContextMenu.Root>
 		{/each}

@@ -103,36 +103,6 @@ export function getRootFret(key: string, stringBaseNotes: number[]): number {
 }
 
 /**
- * Transpose note positions by a number of semitones
- */
-export function transposeNotes(
-	selectedFrets: Record<string, string>,
-	semitones: number,
-	fretCount: number
-): Record<string, string> {
-	if (Object.keys(selectedFrets).length === 0 || semitones === 0) {
-		return selectedFrets;
-	}
-
-	const newSelectedFrets: Record<string, string> = {};
-
-	for (const [key, color] of Object.entries(selectedFrets)) {
-		const [stringIndex, fretIndex] = key.split('-').map(Number);
-		const newFret = fretIndex + semitones;
-
-		// Calculate the pitch class (0-11) for the transposed note
-		const pitchClass = ((newFret % 12) + 12) % 12;
-
-		// Add the note at all octave positions across the fretboard
-		for (let f = pitchClass; f <= fretCount; f += 12) {
-			newSelectedFrets[`${stringIndex}-${f}`] = color;
-		}
-	}
-
-	return newSelectedFrets;
-}
-
-/**
  * Get the display name for a pentatonic shape based on major/minor mode
  * Minor shapes 1-5 map to Major shapes 5,1,2,3,4 respectively
  */

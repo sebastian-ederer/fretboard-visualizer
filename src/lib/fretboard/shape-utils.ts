@@ -1,20 +1,33 @@
 import type { ActiveShape } from './types';
 import {
 	FRET_COUNT,
+	OPEN_FRET_WIDTH,
+	FRET_WIDTH,
+	STRING_LABEL_WIDTH,
+	STRING_ROW_HEIGHT,
 	PENTATONIC_SHAPES,
 	SCALE_INTERVALS,
 	SHAPE_BORDER_COLORS
 } from './constants';
 import { getNoteIndex, getRootFret } from './music-utils';
 
+// Memoization caches for shape calculations
+const pentatonicShapeCache = new Map<string, ActiveShape[]>();
+const threeNPSShapeCache = new Map<string, ActiveShape[]>();
+
 /**
- * Calculate all pentatonic shapes for a given key
+ * Calculate all pentatonic shapes for a given key (memoized)
  */
 export function calculatePentatonicShapes(
 	key: string,
 	isMajor: boolean,
 	stringBaseNotes: number[]
 ): ActiveShape[] {
+	// Check cache first
+	const cacheKey = `${key}-${isMajor}-${stringBaseNotes.join(',')}`;
+	const cached = pentatonicShapeCache.get(cacheKey);
+	if (cached) return cached;
+
 	const rootFret = getRootFret(key, stringBaseNotes);
 	const result: ActiveShape[] = [];
 
@@ -39,11 +52,12 @@ export function calculatePentatonicShapes(
 	});
 
 	result.sort((a, b) => a.startFret - b.startFret);
+	pentatonicShapeCache.set(cacheKey, result);
 	return result;
 }
 
 /**
- * Calculate 3NPS shapes for a given key and shape number
+ * Calculate 3NPS shapes for a given key and shape number (memoized)
  */
 export function calculate3NPSShapes(
 	key: string,
@@ -52,6 +66,11 @@ export function calculate3NPSShapes(
 	stringBaseNotes: number[]
 ): ActiveShape[] {
 	if (shapeNumber < 1 || shapeNumber > 7) return [];
+
+	// Check cache first
+	const cacheKey = `${key}-${shapeNumber}-${isMajor}-${stringBaseNotes.join(',')}`;
+	const cached = threeNPSShapeCache.get(cacheKey);
+	if (cached) return cached;
 
 	const keyIndex = getNoteIndex(key);
 	const intervals = SCALE_INTERVALS['3nps'][isMajor ? 'major' : 'minor'];
@@ -139,6 +158,7 @@ export function calculate3NPSShapes(
 		}
 	}
 
+	threeNPSShapeCache.set(cacheKey, result);
 	return result;
 }
 
@@ -146,16 +166,20 @@ export function calculate3NPSShapes(
  * Get X position for a specific fret (center of fret cell)
  */
 export function getFretX(fret: number): number {
-	if (fret === 0) return 56; // 40 + 32/2
-	if (fret > 0) return 44 + 56 * fret; // 40 + 32 + (fret-1)*56 + 28
-	return 12 + (fret + 1) * 56; // Negative frets
+	// Center of open fret: STRING_LABEL_WIDTH + OPEN_FRET_WIDTH/2
+	if (fret === 0) return STRING_LABEL_WIDTH + OPEN_FRET_WIDTH / 2;
+	// Center of regular fret: STRING_LABEL_WIDTH + OPEN_FRET_WIDTH + (fret-1)*FRET_WIDTH + FRET_WIDTH/2
+	if (fret > 0) return STRING_LABEL_WIDTH + OPEN_FRET_WIDTH - FRET_WIDTH / 2 + fret * FRET_WIDTH;
+	// Negative frets (for shapes extending past nut)
+	return STRING_LABEL_WIDTH + OPEN_FRET_WIDTH / 2 + fret * FRET_WIDTH;
 }
 
 /**
  * Get Y position for a specific string (center of string row)
  */
 export function getStringY(stringIndex: number): number {
-	return 28 + stringIndex * 40 + 20;
+	// Offset from top + string row position + half row height
+	return 28 + stringIndex * STRING_ROW_HEIGHT + STRING_ROW_HEIGHT / 2;
 }
 
 /**

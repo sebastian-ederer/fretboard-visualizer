@@ -4,6 +4,14 @@ import type { ScaleInterval, Shape, ShapePattern } from './types';
 export const FRET_COUNT = 24;
 export const STRING_COUNT = 6;
 
+// Layout dimensions (pixels)
+export const OPEN_FRET_WIDTH = 32;
+export const FRET_WIDTH = 56;
+export const STRING_ROW_HEIGHT = 40;
+export const STRING_LABEL_WIDTH = 40;
+export const STRING_THICKNESS_BASE = 1;
+export const STRING_THICKNESS_INCREMENT = 0.4;
+
 // Fret markers
 export const SINGLE_DOT_FRETS = [3, 5, 7, 9, 15, 17, 19, 21];
 export const DOUBLE_DOT_FRETS = [12, 24];

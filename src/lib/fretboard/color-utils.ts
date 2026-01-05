@@ -1,10 +1,16 @@
 import { SHAPE_COLORS } from './constants';
 import { getPentatonicShapeDisplayName } from './music-utils';
 
+// Memoization cache for complementary colors
+const complementaryColorCache = new Map<string, string>();
+
 /**
- * Calculate complementary color for high contrast borders
+ * Calculate complementary color for high contrast borders (memoized)
  */
 export function getComplementaryColor(hexColor: string): string {
+	// Check cache first
+	const cached = complementaryColorCache.get(hexColor);
+	if (cached) return cached;
 	// Remove # if present
 	const hex = hexColor.replace('#', '');
 
@@ -65,7 +71,9 @@ export function getComplementaryColor(hexColor: string): string {
 	const gOut = Math.round(hue2rgb(p, q, h) * 255);
 	const bOut = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
 
-	return `rgb(${rOut}, ${gOut}, ${bOut})`;
+	const result = `rgb(${rOut}, ${gOut}, ${bOut})`;
+	complementaryColorCache.set(hexColor, result);
+	return result;
 }
 
 /**
