@@ -1139,34 +1139,34 @@
 	// Colors for shape boxes
 	// Pentatonic shape colors
 	const shapeColors = [
-		'rgba(168, 85, 247, 0.15)', // Purple
-		'rgba(59, 130, 246, 0.15)', // Blue
-		'rgba(34, 197, 94, 0.15)', // Green
-		'rgba(234, 179, 8, 0.15)', // Yellow
-		'rgba(249, 115, 22, 0.15)', // Orange
-		'rgba(239, 68, 68, 0.15)', // Red
-		'rgba(236, 72, 153, 0.15)' // Pink
+		'rgba(168, 85, 247, 0.4)', // Purple
+		'rgba(59, 130, 246, 0.4)', // Blue
+		'rgba(34, 197, 94, 0.4)', // Green
+		'rgba(234, 179, 8, 0.4)', // Yellow
+		'rgba(249, 115, 22, 0.4)', // Orange
+		'rgba(239, 68, 68, 0.4)', // Red
+		'rgba(236, 72, 153, 0.4)' // Pink
 	];
 
 	const shapeBorderColors = [
-		'rgba(168, 85, 247, 0.6)',
-		'rgba(59, 130, 246, 0.6)',
-		'rgba(34, 197, 94, 0.6)',
-		'rgba(234, 179, 8, 0.6)',
-		'rgba(249, 115, 22, 0.6)',
-		'rgba(239, 68, 68, 0.6)',
-		'rgba(236, 72, 153, 0.6)'
+		'rgba(168, 85, 247, 0.9)',
+		'rgba(59, 130, 246, 0.9)',
+		'rgba(34, 197, 94, 0.9)',
+		'rgba(234, 179, 8, 0.9)',
+		'rgba(249, 115, 22, 0.9)',
+		'rgba(239, 68, 68, 0.9)',
+		'rgba(236, 72, 153, 0.9)'
 	];
 
 	// 3NPS shape colors (transparent white for best visibility)
 	const threeNPSShapeColors = [
-		'rgba(255, 255, 255, 0.15)',
-		'rgba(255, 255, 255, 0.15)',
-		'rgba(255, 255, 255, 0.15)',
-		'rgba(255, 255, 255, 0.15)',
-		'rgba(255, 255, 255, 0.15)',
-		'rgba(255, 255, 255, 0.15)',
-		'rgba(255, 255, 255, 0.15)'
+		'rgba(255, 255, 255, 0.5)',
+		'rgba(255, 255, 255, 0.5)',
+		'rgba(255, 255, 255, 0.5)',
+		'rgba(255, 255, 255, 0.5)',
+		'rgba(255, 255, 255, 0.5)',
+		'rgba(255, 255, 255, 0.5)',
+		'rgba(255, 255, 255, 0.5)'
 	];
 
 	const threeNPSBorderColors = [
@@ -2189,15 +2189,19 @@
 
 			<!-- Fretboard -->
 			<div
-				class="overflow-x-auto rounded-xl border border-border/50 bg-transparent"
+				class="overflow-x-auto rounded-xl border border-border/50 bg-background"
+				style="-webkit-overflow-scrolling: touch;"
 			>
 				<!-- Inner wrapper with fixed width to ensure proper scrolling -->
-				<div class="relative px-6 pb-6 pt-12" style="min-width: 1464px;">
+				<div
+					class="relative isolate bg-background px-6 pb-6 pt-12"
+					style="min-width: 1464px;"
+				>
 					<!-- Pentatonic shape overlays using SVG (only in standard tuning) -->
 					{#if showShapeBoxes && activeShapes.length > 0 && selectedTuningPreset === 'standard'}
 						<svg
 							class="pointer-events-none absolute z-10"
-							style="top: 48px; left: 24px; width: 1416px; height: 300px;"
+							style="top: 48px; left: 24px; width: 1416px; height: 300px; isolation: isolate;"
 						>
 							{#each activeShapes as shape (shape.name + '-' + shape.startFret)}
 								{#if isShapeVisible(shape) && shape.path}
@@ -2240,7 +2244,7 @@
 					{#if show3NPSShapeBoxes && active3NPSShapes.length > 0 && selectedTuningPreset === 'standard'}
 						<svg
 							class="pointer-events-none absolute z-10"
-							style="top: 48px; left: 24px; width: 1416px; height: 300px;"
+							style="top: 48px; left: 24px; width: 1416px; height: 300px; isolation: isolate;"
 						>
 							{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret)}
 								{#if isShapeVisible(shape) && shape.path}
@@ -2266,9 +2270,7 @@
 								>
 									<span
 										class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
-										style="background-color: {threeNPSShapeColors[
-											shape.colorIndex
-										]}; color: {threeNPSBorderColors[
+										style="background-color: {threeNPSShapeColors[shape.colorIndex]}; color: {threeNPSBorderColors[
 											shape.colorIndex
 										]}; border: 1px solid {threeNPSBorderColors[shape.colorIndex]};"
 									>
@@ -2280,116 +2282,118 @@
 					{/if}
 
 					<!-- Fret numbers -->
-				<div class="mb-3 flex pl-10">
-					{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
-						<div
-							class="flex-shrink-0 text-center text-xs font-medium text-muted-foreground {fretIndex ===
-							0
-								? 'w-8'
-								: 'w-14'}"
-						>
-							{fretIndex}
-						</div>
-					{/each}
-				</div>
+					<div class="mb-3 flex pl-10">
+						{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
+							<div
+								class="flex-shrink-0 text-center text-xs font-medium text-muted-foreground {fretIndex ===
+								0
+									? 'w-8'
+									: 'w-14'}"
+							>
+								{fretIndex}
+							</div>
+						{/each}
+					</div>
 
-				<!-- Strings -->
-				{#each strings as stringName, stringIndex (stringIndex)}
-					<ContextMenu.Root>
-						<ContextMenu.Trigger>
-							<div class="group relative flex items-center">
-								<div
-									class="w-10 flex-shrink-0 text-center text-sm font-semibold text-muted-foreground"
-								>
-									{stringName}
-								</div>
-
-								<!-- String line -->
-								<div
-									class="pointer-events-none absolute left-10 right-0 bg-gradient-to-r from-zinc-400 via-zinc-300 to-zinc-400"
-									style="height: {1 + stringIndex * 0.4}px;"
-								></div>
-
-								{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
+					<!-- Strings -->
+					{#each strings as stringName, stringIndex (stringIndex)}
+						<ContextMenu.Root>
+							<ContextMenu.Trigger>
+								<div class="group relative flex items-center">
 									<div
-										class="relative z-20 flex h-10 flex-shrink-0 items-center justify-center {fretIndex ===
-										0
-											? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30'
-											: 'w-14 border-r-2 border-r-zinc-600'}"
+										class="w-10 flex-shrink-0 text-center text-sm font-semibold text-muted-foreground"
 									>
-										<!-- Circular hit area for painting -->
-										<button
-											class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
-											onmousedown={() => startPainting(stringIndex, fretIndex)}
-											onmouseenter={() => handlePaintOver(stringIndex, fretIndex)}
-											ontouchstart={() => startPainting(stringIndex, fretIndex)}
-											ontouchmove={(e) => {
-												const touch = e.touches[0];
-												const target = document.elementFromPoint(touch.clientX, touch.clientY);
-												if (target?.closest('button')) {
-													const btn = target.closest('button');
-													const parent = btn?.parentElement;
-													if (parent) {
-														const row = parent.parentElement;
-														const cells = row?.querySelectorAll(':scope > div');
-														if (cells) {
-															const cellIndex = Array.from(cells).indexOf(parent);
-															if (cellIndex >= 0) {
-																handlePaintOver(stringIndex, cellIndex);
+										{stringName}
+									</div>
+
+									<!-- String line -->
+									<div
+										class="pointer-events-none absolute left-10 right-0 bg-gradient-to-r from-zinc-400 via-zinc-300 to-zinc-400"
+										style="height: {1 + stringIndex * 0.4}px;"
+									></div>
+
+									{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
+										<div
+											class="relative z-20 flex h-10 flex-shrink-0 items-center justify-center {fretIndex ===
+											0
+												? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30'
+												: 'w-14 border-r-2 border-r-zinc-600'}"
+										>
+											<!-- Circular hit area for painting -->
+											<button
+												class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
+												onmousedown={() => startPainting(stringIndex, fretIndex)}
+												onmouseenter={() => handlePaintOver(stringIndex, fretIndex)}
+												ontouchstart={() => startPainting(stringIndex, fretIndex)}
+												ontouchmove={(e) => {
+													const touch = e.touches[0];
+													const target = document.elementFromPoint(touch.clientX, touch.clientY);
+													if (target?.closest('button')) {
+														const btn = target.closest('button');
+														const parent = btn?.parentElement;
+														if (parent) {
+															const row = parent.parentElement;
+															const cells = row?.querySelectorAll(':scope > div');
+															if (cells) {
+																const cellIndex = Array.from(cells).indexOf(parent);
+																if (cellIndex >= 0) {
+																	handlePaintOver(stringIndex, cellIndex);
+																}
 															}
 														}
 													}
-												}
-											}}
-										>
-											{#if isSelected(stringIndex, fretIndex)}
-												{@const noteColor = getNoteColor(stringIndex, fretIndex)}
-												{@const inShape = isNoteIn3NPSShape(stringIndex, fretIndex)}
-												{@const borderColor = inShape ? getComplementaryColor(noteColor) : 'white'}
-												<div
-													class="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
-													style="background-color: {noteColor}bf; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
-												>
-													<span class="text-[10px] font-bold text-white"
-														>{getNoteDisplay(stringIndex, fretIndex)}</span
+												}}
+											>
+												{#if isSelected(stringIndex, fretIndex)}
+													{@const noteColor = getNoteColor(stringIndex, fretIndex)}
+													{@const inShape = isNoteIn3NPSShape(stringIndex, fretIndex)}
+													{@const borderColor = inShape
+														? getComplementaryColor(noteColor)
+														: 'white'}
+													<div
+														class="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
+														style="background-color: {noteColor}bf; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
 													>
-												</div>
-											{/if}
-										</button>
-									</div>
-								{/each}
-							</div>
-						</ContextMenu.Trigger>
-						<ContextMenu.Content class="w-48">
-							<ContextMenu.Item onclick={() => selectString(stringIndex)}>
-								Select all on {stringName} string
-							</ContextMenu.Item>
-							<ContextMenu.Item onclick={() => clearString(stringIndex)}>
-								Clear {stringName} string
-							</ContextMenu.Item>
-							<ContextMenu.Separator />
-							<ContextMenu.Item onclick={clearAll}>Clear all</ContextMenu.Item>
-						</ContextMenu.Content>
-					</ContextMenu.Root>
-				{/each}
-
-				<!-- Fret markers -->
-				<div class="mt-3 flex pl-10">
-					{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
-						<div
-							class="flex flex-shrink-0 items-center justify-center gap-1 {fretIndex === 0
-								? 'w-8'
-								: 'w-14'}"
-						>
-							{#if singleDotFrets.includes(fretIndex)}
-								<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
-							{:else if doubleDotFrets.includes(fretIndex)}
-								<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
-								<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
-							{/if}
-						</div>
+														<span class="text-[10px] font-bold text-white"
+															>{getNoteDisplay(stringIndex, fretIndex)}</span
+														>
+													</div>
+												{/if}
+											</button>
+										</div>
+									{/each}
+								</div>
+							</ContextMenu.Trigger>
+							<ContextMenu.Content class="w-48">
+								<ContextMenu.Item onclick={() => selectString(stringIndex)}>
+									Select all on {stringName} string
+								</ContextMenu.Item>
+								<ContextMenu.Item onclick={() => clearString(stringIndex)}>
+									Clear {stringName} string
+								</ContextMenu.Item>
+								<ContextMenu.Separator />
+								<ContextMenu.Item onclick={clearAll}>Clear all</ContextMenu.Item>
+							</ContextMenu.Content>
+						</ContextMenu.Root>
 					{/each}
-				</div>
+
+					<!-- Fret markers -->
+					<div class="mt-3 flex pl-10">
+						{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
+							<div
+								class="flex flex-shrink-0 items-center justify-center gap-1 {fretIndex === 0
+									? 'w-8'
+									: 'w-14'}"
+							>
+								{#if singleDotFrets.includes(fretIndex)}
+									<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
+								{:else if doubleDotFrets.includes(fretIndex)}
+									<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
+									<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
+								{/if}
+							</div>
+						{/each}
+					</div>
 				</div>
 			</div>
 		</div>
