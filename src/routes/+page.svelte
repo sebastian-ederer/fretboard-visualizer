@@ -6,6 +6,8 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Settings from '@lucide/svelte/icons/settings';
+	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 
 	// Standard guitar tuning (high to low in display)
 	const strings = ['E', 'B', 'G', 'D', 'A', 'E'];
@@ -51,6 +53,254 @@
 
 	// Interval names (semitones from root)
 	const intervalNames = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'];
+
+	// localStorage keys
+	const STORAGE_KEY = 'fretboard-visualizer-state';
+	const PRESETS_KEY = 'fretboard-visualizer-presets';
+
+	// Preset management
+	interface Preset {
+		selectedFrets: Record<string, string>;
+		selectedKey: string;
+		isMajor: boolean;
+		selectedScale: string;
+		selectedColor: string;
+		customColor: string;
+		showShapeBoxes: boolean;
+		show3NPSShapeBoxes: boolean;
+		selected3NPSShape: number | null;
+		showIntervals: boolean;
+		eraseSelectedColorOnly: boolean;
+		lastAppliedScale: string | null;
+		scaleToRemove: string;
+	}
+
+	let savedPresets: Record<string, Preset> = $state({});
+	let presetName = $state('');
+	let selectedPresetName = $state('');
+
+	// Load state from localStorage on mount
+	function loadFromStorage() {
+		if (!browser) return;
+		try {
+			// Load current state
+			const saved = localStorage.getItem(STORAGE_KEY);
+			if (saved) {
+				const state = JSON.parse(saved);
+				if (state.selectedFrets) selectedFrets = state.selectedFrets;
+				if (state.selectedKey) selectedKey = state.selectedKey;
+				if (state.isMajor !== undefined) isMajor = state.isMajor;
+				if (state.selectedScale) selectedScale = state.selectedScale;
+				if (state.selectedColor) selectedColor = state.selectedColor;
+				if (state.customColor) customColor = state.customColor;
+				if (state.showShapeBoxes !== undefined) showShapeBoxes = state.showShapeBoxes;
+				if (state.show3NPSShapeBoxes !== undefined) show3NPSShapeBoxes = state.show3NPSShapeBoxes;
+				if (state.selected3NPSShape !== undefined) selected3NPSShape = state.selected3NPSShape;
+				if (state.showIntervals !== undefined) showIntervals = state.showIntervals;
+				if (state.eraseSelectedColorOnly !== undefined) eraseSelectedColorOnly = state.eraseSelectedColorOnly;
+				if (state.lastAppliedScale !== undefined) lastAppliedScale = state.lastAppliedScale;
+				if (state.scaleToRemove) scaleToRemove = state.scaleToRemove;
+
+				// Recalculate shapes based on loaded state
+				activeShapes = calculatePentatonicShapes(selectedKey);
+				if (selected3NPSShape !== null) {
+					active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+				}
+			}
+
+			// Load saved presets
+			const presetsData = localStorage.getItem(PRESETS_KEY);
+			if (presetsData) {
+				savedPresets = JSON.parse(presetsData);
+			}
+		} catch (e) {
+			console.error('Failed to load state from localStorage:', e);
+		}
+	}
+
+	// Save state to localStorage
+	function saveToStorage() {
+		if (!browser) return;
+		try {
+			const state = {
+				selectedFrets,
+				selectedKey,
+				isMajor,
+				selectedScale,
+				selectedColor,
+				customColor,
+				showShapeBoxes,
+				show3NPSShapeBoxes,
+				selected3NPSShape,
+				showIntervals,
+				eraseSelectedColorOnly,
+				lastAppliedScale,
+				scaleToRemove
+			};
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+		} catch (e) {
+			console.error('Failed to save state to localStorage:', e);
+		}
+	}
+
+	// Preset functions
+	function savePreset() {
+		if (!presetName.trim()) return;
+
+		const preset: Preset = {
+			selectedFrets: { ...selectedFrets },
+			selectedKey,
+			isMajor,
+			selectedScale,
+			selectedColor,
+			customColor,
+			showShapeBoxes,
+			show3NPSShapeBoxes,
+			selected3NPSShape,
+			showIntervals,
+			eraseSelectedColorOnly,
+			lastAppliedScale,
+			scaleToRemove
+		};
+
+		savedPresets[presetName.trim()] = preset;
+		savedPresets = { ...savedPresets }; // Trigger reactivity
+
+		// Save to localStorage
+		if (browser) {
+			localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+		}
+
+		// Update selected preset and clear input
+		selectedPresetName = presetName.trim();
+		presetName = '';
+	}
+
+	function loadPreset() {
+		if (!selectedPresetName || !savedPresets[selectedPresetName]) return;
+
+		const preset = savedPresets[selectedPresetName];
+
+		selectedFrets = { ...preset.selectedFrets };
+		selectedKey = preset.selectedKey;
+		isMajor = preset.isMajor;
+		selectedScale = preset.selectedScale;
+		selectedColor = preset.selectedColor;
+		customColor = preset.customColor;
+		showShapeBoxes = preset.showShapeBoxes;
+		show3NPSShapeBoxes = preset.show3NPSShapeBoxes;
+		selected3NPSShape = preset.selected3NPSShape;
+		showIntervals = preset.showIntervals;
+		eraseSelectedColorOnly = preset.eraseSelectedColorOnly;
+		lastAppliedScale = preset.lastAppliedScale;
+		scaleToRemove = preset.scaleToRemove;
+
+		// Recalculate shapes
+		activeShapes = calculatePentatonicShapes(selectedKey);
+		if (selected3NPSShape !== null) {
+			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+		} else {
+			active3NPSShapes = [];
+		}
+	}
+
+	function deletePreset() {
+		if (!selectedPresetName || !savedPresets[selectedPresetName]) return;
+
+		delete savedPresets[selectedPresetName];
+		savedPresets = { ...savedPresets }; // Trigger reactivity
+
+		// Save to localStorage
+		if (browser) {
+			localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+		}
+
+		selectedPresetName = '';
+	}
+
+	function exportPresets() {
+		if (Object.keys(savedPresets).length === 0) return;
+
+		const data = JSON.stringify(savedPresets, null, 2);
+		const blob = new Blob([data], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `fretboard-presets-${new Date().toISOString().split('T')[0]}.json`;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}
+
+	let fileInput: HTMLInputElement;
+
+	function importPresets(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const imported = JSON.parse(e.target?.result as string) as Record<string, Preset>;
+
+				// Validate the imported data has the expected structure
+				for (const [name, preset] of Object.entries(imported)) {
+					if (typeof preset.selectedFrets !== 'object' || typeof preset.selectedKey !== 'string') {
+						throw new Error('Invalid preset format');
+					}
+				}
+
+				// Merge with existing presets (imported presets override existing ones with same name)
+				savedPresets = { ...savedPresets, ...imported };
+
+				// Save to localStorage
+				if (browser) {
+					localStorage.setItem(PRESETS_KEY, JSON.stringify(savedPresets));
+				}
+
+				// Reset file input
+				input.value = '';
+			} catch (err) {
+				console.error('Failed to import presets:', err);
+				alert('Failed to import presets. Please check the file format.');
+				input.value = '';
+			}
+		};
+		reader.readAsText(file);
+	}
+
+	// Load on mount
+	let isLoaded = $state(false);
+
+	onMount(() => {
+		loadFromStorage();
+		isLoaded = true;
+	});
+
+	// Only save after initial load to prevent overwriting saved state
+	$effect(() => {
+		if (!isLoaded) return;
+
+		// Access all reactive values to track them
+		selectedFrets;
+		selectedKey;
+		isMajor;
+		selectedScale;
+		selectedColor;
+		customColor;
+		showShapeBoxes;
+		show3NPSShapeBoxes;
+		selected3NPSShape;
+		showIntervals;
+		eraseSelectedColorOnly;
+		lastAppliedScale;
+		scaleToRemove;
+
+		saveToStorage();
+	});
 
 	function getIntervalName(stringIndex: number, fretIndex: number): string {
 		const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
@@ -568,14 +818,14 @@
 			const maxFret = Math.min(fretCount, Math.max(...frets));
 			return {
 				x: (getFretX(minFret) + getFretX(maxFret)) / 2,
-				y: 12
+				y: -24
 			};
 		} else if (shape.endFret !== undefined) {
 			// For rectangle shapes
 			const pos = getShapePosition(shape.startFret, shape.endFret);
 			return {
 				x: pos.left + pos.width / 2,
-				y: 12
+				y: -24
 			};
 		}
 		return { x: 0, y: 0 };
@@ -848,6 +1098,83 @@
 				</Collapsible.Trigger>
 				<Collapsible.Content class="mt-2 rounded-lg border border-border/50 bg-card/50 p-4">
 					<div class="space-y-4">
+						<!-- Presets Section -->
+						<div class="border-b border-border/50 pb-4">
+							<span class="mb-3 block text-sm font-medium text-muted-foreground">Presets</span>
+							<div class="flex flex-wrap items-end gap-3">
+								<!-- Save Preset -->
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70">Save As</span>
+									<div class="flex gap-1">
+										<input
+											type="text"
+											bind:value={presetName}
+											placeholder="Preset name..."
+											class="h-9 w-36 rounded-md border border-border bg-background px-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+											onkeydown={(e) => e.key === 'Enter' && savePreset()}
+										/>
+										<Button onclick={savePreset} variant="secondary" class="h-9 px-2" disabled={!presetName.trim()}>
+											Save
+										</Button>
+									</div>
+								</div>
+
+								<!-- Load/Delete Preset -->
+								{#if Object.keys(savedPresets).length > 0}
+									<div class="flex flex-col gap-1">
+										<span class="text-xs text-muted-foreground/70">Load Preset</span>
+										<div class="flex gap-1">
+											<Select.Root type="single" bind:value={selectedPresetName}>
+												<Select.Trigger class="h-9 w-36">
+													{selectedPresetName || 'Select...'}
+												</Select.Trigger>
+												<Select.Content>
+													{#each Object.keys(savedPresets) as name (name)}
+														<Select.Item value={name}>{name}</Select.Item>
+													{/each}
+												</Select.Content>
+											</Select.Root>
+											<Button onclick={loadPreset} variant="secondary" class="h-9 px-2" disabled={!selectedPresetName}>
+												Load
+											</Button>
+											<Button onclick={deletePreset} variant="destructive" class="h-9 px-2" disabled={!selectedPresetName}>
+												✕
+											</Button>
+										</div>
+									</div>
+								{/if}
+
+								<!-- Export/Import Presets -->
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70">File</span>
+									<div class="flex gap-1">
+										<Button
+											onclick={exportPresets}
+											variant="outline"
+											class="h-9 px-2"
+											disabled={Object.keys(savedPresets).length === 0}
+										>
+											Export
+										</Button>
+										<Button
+											onclick={() => fileInput.click()}
+											variant="outline"
+											class="h-9 px-2"
+										>
+											Import
+										</Button>
+										<input
+											type="file"
+											accept=".json"
+											bind:this={fileInput}
+											onchange={importPresets}
+											class="hidden"
+										/>
+									</div>
+								</div>
+							</div>
+						</div>
+
 						<div>
 							<span class="mb-2 block text-sm font-medium text-muted-foreground">Note Color</span>
 							<div class="flex items-center gap-3">
@@ -1073,12 +1400,12 @@
 			</Collapsible.Root>
 
 			<!-- Fretboard -->
-			<div class="relative overflow-x-auto rounded-xl border border-border/50 bg-transparent p-6">
+			<div class="relative overflow-x-auto rounded-xl border border-border/50 bg-transparent px-6 pb-6 pt-12">
 				<!-- Pentatonic shape overlays using SVG -->
 				{#if showShapeBoxes && activeShapes.length > 0}
 					<svg
 						class="pointer-events-none absolute inset-0 z-10"
-						style="top: 24px; left: 24px; width: calc(100% - 48px); height: 300px;"
+						style="top: 48px; left: 24px; width: calc(100% - 48px); height: 300px;"
 					>
 						{#each activeShapes as shape (shape.name + '-' + shape.startFret)}
 							{#if isShapeVisible(shape) && shape.path}
@@ -1099,7 +1426,7 @@
 							{@const labelPos = getShapeLabelPosition(shape)}
 							<div
 								class="pointer-events-none absolute z-20"
-								style="left: {labelPos.x + 24}px; top: {labelPos.y + 24}px; transform: translateX(-50%);"
+								style="left: {labelPos.x + 24}px; top: {labelPos.y + 48}px; transform: translateX(-50%);"
 							>
 								<span
 									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
@@ -1118,7 +1445,7 @@
 				{#if show3NPSShapeBoxes && active3NPSShapes.length > 0}
 					<svg
 						class="pointer-events-none absolute inset-0 z-10"
-						style="top: 24px; left: 24px; width: calc(100% - 48px); height: 300px;"
+						style="top: 48px; left: 24px; width: calc(100% - 48px); height: 300px;"
 					>
 						{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret)}
 							{#if isShapeVisible(shape) && shape.path}
@@ -1139,7 +1466,7 @@
 							{@const labelPos = getShapeLabelPosition(shape)}
 							<div
 								class="pointer-events-none absolute z-20"
-								style="left: {labelPos.x + 24}px; top: {labelPos.y + 24}px; transform: translateX(-50%);"
+								style="left: {labelPos.x + 24}px; top: {labelPos.y + 48}px; transform: translateX(-50%);"
 							>
 								<span
 									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
