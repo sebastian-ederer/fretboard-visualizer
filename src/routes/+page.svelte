@@ -6,6 +6,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Settings from '@lucide/svelte/icons/settings';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 
@@ -79,6 +80,93 @@
 	let presetName = $state('');
 	let selectedPresetName = $state('');
 
+	// Scroll wheel handlers for dropdowns
+	function scrollKey(e: WheelEvent) {
+		e.preventDefault();
+		const idx = chromaticScale.indexOf(selectedKey);
+		const newIdx =
+			e.deltaY > 0
+				? (idx + 1) % chromaticScale.length
+				: (idx - 1 + chromaticScale.length) % chromaticScale.length;
+		selectedKey = chromaticScale[newIdx];
+	}
+
+	const scaleOptions = [
+		'pentatonic',
+		'blues',
+		'ionian',
+		'dorian',
+		'phrygian',
+		'lydian',
+		'mixolydian',
+		'aeolian',
+		'locrian',
+		'dorian-#4',
+		'melodic-minor',
+		'diatonic',
+		'3nps'
+	];
+
+	function scrollScale(e: WheelEvent) {
+		e.preventDefault();
+		const idx = scaleOptions.indexOf(selectedScale);
+		const newIdx =
+			e.deltaY > 0
+				? (idx + 1) % scaleOptions.length
+				: (idx - 1 + scaleOptions.length) % scaleOptions.length;
+		selectedScale = scaleOptions[newIdx];
+	}
+
+	const removeScaleOptions = [
+		'blues',
+		'ionian',
+		'dorian',
+		'phrygian',
+		'lydian',
+		'mixolydian',
+		'aeolian',
+		'locrian',
+		'dorian-#4',
+		'melodic-minor'
+	];
+
+	function scrollRemoveScale(e: WheelEvent) {
+		e.preventDefault();
+		const idx = removeScaleOptions.indexOf(scaleToRemove);
+		const newIdx =
+			e.deltaY > 0
+				? (idx + 1) % removeScaleOptions.length
+				: (idx - 1 + removeScaleOptions.length) % removeScaleOptions.length;
+		scaleToRemove = removeScaleOptions[newIdx];
+	}
+
+	const threeNPSOptions = ['none', '1', '2', '3', '4', '5', '6', '7'];
+
+	function scroll3NPSShape(e: WheelEvent) {
+		e.preventDefault();
+		const currentVal = selected3NPSShape?.toString() ?? 'none';
+		const idx = threeNPSOptions.indexOf(currentVal);
+		const newIdx =
+			e.deltaY > 0
+				? (idx + 1) % threeNPSOptions.length
+				: (idx - 1 + threeNPSOptions.length) % threeNPSOptions.length;
+		const newVal = threeNPSOptions[newIdx];
+		selected3NPSShape = newVal === 'none' ? null : parseInt(newVal);
+		update3NPSShape();
+	}
+
+	function scrollPreset(e: WheelEvent) {
+		e.preventDefault();
+		const presetNames = Object.keys(savedPresets);
+		if (presetNames.length === 0) return;
+		const idx = presetNames.indexOf(selectedPresetName);
+		const newIdx =
+			e.deltaY > 0
+				? (idx + 1) % presetNames.length
+				: (idx - 1 + presetNames.length) % presetNames.length;
+		selectedPresetName = presetNames[newIdx];
+	}
+
 	// Load state from localStorage on mount
 	function loadFromStorage() {
 		if (!browser) return;
@@ -97,7 +185,8 @@
 				if (state.show3NPSShapeBoxes !== undefined) show3NPSShapeBoxes = state.show3NPSShapeBoxes;
 				if (state.selected3NPSShape !== undefined) selected3NPSShape = state.selected3NPSShape;
 				if (state.showIntervals !== undefined) showIntervals = state.showIntervals;
-				if (state.eraseSelectedColorOnly !== undefined) eraseSelectedColorOnly = state.eraseSelectedColorOnly;
+				if (state.eraseSelectedColorOnly !== undefined)
+					eraseSelectedColorOnly = state.eraseSelectedColorOnly;
 				if (state.lastAppliedScale !== undefined) lastAppliedScale = state.lastAppliedScale;
 				if (state.scaleToRemove) scaleToRemove = state.scaleToRemove;
 
@@ -818,14 +907,14 @@
 			const maxFret = Math.min(fretCount, Math.max(...frets));
 			return {
 				x: (getFretX(minFret) + getFretX(maxFret)) / 2,
-				y: -24
+				y: -28
 			};
 		} else if (shape.endFret !== undefined) {
 			// For rectangle shapes
 			const pos = getShapePosition(shape.startFret, shape.endFret);
 			return {
 				x: pos.left + pos.width / 2,
-				y: -24
+				y: -28
 			};
 		}
 		return { x: 0, y: 0 };
@@ -1113,7 +1202,12 @@
 											class="h-9 w-36 rounded-md border border-border bg-background px-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
 											onkeydown={(e) => e.key === 'Enter' && savePreset()}
 										/>
-										<Button onclick={savePreset} variant="secondary" class="h-9 px-2" disabled={!presetName.trim()}>
+										<Button
+											onclick={savePreset}
+											variant="secondary"
+											class="h-9 px-2"
+											disabled={!presetName.trim()}
+										>
 											Save
 										</Button>
 									</div>
@@ -1125,20 +1219,30 @@
 										<span class="text-xs text-muted-foreground/70">Load Preset</span>
 										<div class="flex gap-1">
 											<Select.Root type="single" bind:value={selectedPresetName}>
-												<Select.Trigger class="h-9 w-36">
+												<Select.Trigger class="h-9 w-36" onwheel={scrollPreset}>
 													{selectedPresetName || 'Select...'}
 												</Select.Trigger>
-												<Select.Content>
+												<Select.Content class="max-h-64 overflow-y-auto">
 													{#each Object.keys(savedPresets) as name (name)}
 														<Select.Item value={name}>{name}</Select.Item>
 													{/each}
 												</Select.Content>
 											</Select.Root>
-											<Button onclick={loadPreset} variant="secondary" class="h-9 px-2" disabled={!selectedPresetName}>
+											<Button
+												onclick={loadPreset}
+												variant="secondary"
+												class="h-9 px-2"
+												disabled={!selectedPresetName}
+											>
 												Load
 											</Button>
-											<Button onclick={deletePreset} variant="destructive" class="h-9 px-2" disabled={!selectedPresetName}>
-												✕
+											<Button
+												onclick={deletePreset}
+												variant="ghost"
+												class="h-9 px-2 text-muted-foreground hover:text-destructive"
+												disabled={!selectedPresetName}
+											>
+												<Trash2 class="h-4 w-4" />
 											</Button>
 										</div>
 									</div>
@@ -1156,11 +1260,7 @@
 										>
 											Export
 										</Button>
-										<Button
-											onclick={() => fileInput.click()}
-											variant="outline"
-											class="h-9 px-2"
-										>
+										<Button onclick={() => fileInput.click()} variant="outline" class="h-9 px-2">
 											Import
 										</Button>
 										<input
@@ -1226,9 +1326,7 @@
 						</div>
 						<div class="flex items-center justify-between">
 							<div>
-								<span class="block text-sm font-medium text-muted-foreground"
-									>Show intervals</span
-								>
+								<span class="block text-sm font-medium text-muted-foreground">Show intervals</span>
 								<span class="text-xs text-muted-foreground/70"
 									>Display interval numbers instead of note names</span
 								>
@@ -1244,10 +1342,10 @@
 								<div class="flex flex-col gap-1">
 									<span class="text-xs text-muted-foreground/70">Key</span>
 									<Select.Root type="single" bind:value={selectedKey}>
-										<Select.Trigger class="w-20">
+										<Select.Trigger class="w-20" onwheel={scrollKey}>
 											{selectedKey}
 										</Select.Trigger>
-										<Select.Content>
+										<Select.Content class="max-h-64 overflow-y-auto">
 											{#each chromaticScale as note (note)}
 												<Select.Item value={note}>{note}</Select.Item>
 											{/each}
@@ -1284,7 +1382,7 @@
 								<div class="flex flex-col gap-1">
 									<span class="text-xs text-muted-foreground/70">Scale</span>
 									<Select.Root type="single" bind:value={selectedScale}>
-										<Select.Trigger class="w-36">
+										<Select.Trigger class="w-36" onwheel={scrollScale}>
 											{#if selectedScale === '3nps'}
 												3 Notes/String
 											{:else if selectedScale === 'dorian-#4'}
@@ -1295,7 +1393,7 @@
 												{selectedScale.charAt(0).toUpperCase() + selectedScale.slice(1)}
 											{/if}
 										</Select.Trigger>
-										<Select.Content>
+										<Select.Content class="max-h-64 overflow-y-auto">
 											<Select.Item value="pentatonic">Pentatonic</Select.Item>
 											<Select.Item value="blues">Blues</Select.Item>
 											<Select.Item value="ionian">Ionian</Select.Item>
@@ -1321,7 +1419,7 @@
 									<span class="text-xs text-muted-foreground/70">Remove</span>
 									<div class="flex gap-1">
 										<Select.Root type="single" bind:value={scaleToRemove}>
-											<Select.Trigger class="h-9 w-28">
+											<Select.Trigger class="h-9 w-28" onwheel={scrollRemoveScale}>
 												{#if scaleToRemove === '3nps'}
 													3NPS
 												{:else if scaleToRemove === 'dorian-#4'}
@@ -1332,7 +1430,7 @@
 													{scaleToRemove.charAt(0).toUpperCase() + scaleToRemove.slice(1)}
 												{/if}
 											</Select.Trigger>
-											<Select.Content>
+											<Select.Content class="max-h-64 overflow-y-auto">
 												<Select.Item value="blues">Blues</Select.Item>
 												<Select.Item value="ionian">Ionian</Select.Item>
 												<Select.Item value="dorian">Dorian</Select.Item>
@@ -1345,7 +1443,13 @@
 												<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
 											</Select.Content>
 										</Select.Root>
-										<Button onclick={removeScaleNotes} variant="destructive" class="h-9 px-2">✕</Button>
+										<Button
+											onclick={removeScaleNotes}
+											variant="ghost"
+											class="h-9 px-2 text-muted-foreground hover:text-destructive"
+										>
+											<Trash2 class="h-4 w-4" />
+										</Button>
 									</div>
 								</div>
 
@@ -1377,10 +1481,10 @@
 												update3NPSShape();
 											}}
 										>
-											<Select.Trigger class="w-28">
+											<Select.Trigger class="w-28" onwheel={scroll3NPSShape}>
 												{selected3NPSShape === null ? 'None' : `Shape ${selected3NPSShape}`}
 											</Select.Trigger>
-											<Select.Content>
+											<Select.Content class="max-h-64 overflow-y-auto">
 												<Select.Item value="none">None</Select.Item>
 												<Select.Item value="1">Shape 1</Select.Item>
 												<Select.Item value="2">Shape 2</Select.Item>
@@ -1395,12 +1499,19 @@
 								{/if}
 							</div>
 						</div>
+
+						<!-- Clear All Button -->
+						<div class="border-t border-border/50 pt-4">
+							<Button variant="secondary" onclick={clearAll} class="w-full">Clear All Notes</Button>
+						</div>
 					</div>
 				</Collapsible.Content>
 			</Collapsible.Root>
 
 			<!-- Fretboard -->
-			<div class="relative overflow-x-auto rounded-xl border border-border/50 bg-transparent px-6 pb-6 pt-12">
+			<div
+				class="relative overflow-x-auto rounded-xl border border-border/50 bg-transparent px-6 pb-6 pt-12"
+			>
 				<!-- Pentatonic shape overlays using SVG -->
 				{#if showShapeBoxes && activeShapes.length > 0}
 					<svg
@@ -1426,11 +1537,14 @@
 							{@const labelPos = getShapeLabelPosition(shape)}
 							<div
 								class="pointer-events-none absolute z-20"
-								style="left: {labelPos.x + 24}px; top: {labelPos.y + 48}px; transform: translateX(-50%);"
+								style="left: {labelPos.x + 24}px; top: {labelPos.y +
+									40}px; transform: translateX(-50%);"
 							>
 								<span
 									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
-									style="background-color: {shapeColors[shape.colorIndex]}; color: {shapeBorderColors[
+									style="background-color: {shapeColors[
+										shape.colorIndex
+									]}; color: {shapeBorderColors[
 										shape.colorIndex
 									]}; border: 1px solid {shapeBorderColors[shape.colorIndex]};"
 								>
@@ -1466,11 +1580,14 @@
 							{@const labelPos = getShapeLabelPosition(shape)}
 							<div
 								class="pointer-events-none absolute z-20"
-								style="left: {labelPos.x + 24}px; top: {labelPos.y + 48}px; transform: translateX(-50%);"
+								style="left: {labelPos.x + 24}px; top: {labelPos.y +
+									40}px; transform: translateX(-50%);"
 							>
 								<span
 									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
-									style="background-color: {threeNPSShapeColors[shape.colorIndex]}; color: {threeNPSBorderColors[
+									style="background-color: {threeNPSShapeColors[
+										shape.colorIndex
+									]}; color: {threeNPSBorderColors[
 										shape.colorIndex
 									]}; border: 1px solid {threeNPSBorderColors[shape.colorIndex]};"
 								>
@@ -1566,8 +1683,6 @@
 					{/each}
 				</div>
 			</div>
-
-			<Button variant="secondary" class="self-center" onclick={clearAll}>Clear All</Button>
 		</div>
 	</main>
 </div>
