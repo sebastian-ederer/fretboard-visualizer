@@ -11,6 +11,8 @@
 	import Redo2 from '@lucide/svelte/icons/redo-2';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Minus from '@lucide/svelte/icons/minus';
+
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Zap from '@lucide/svelte/icons/zap';
 	import { browser } from '$app/environment';
@@ -1719,16 +1721,20 @@
 	}
 </script>
 
-<svelte:window onmouseup={stopPainting} onkeydown={handleKeydown} />
+<svelte:window onmouseup={stopPainting} ontouchend={stopPainting} onkeydown={handleKeydown} />
 
-<div class="flex min-h-screen flex-col p-8">
-	<header class="mb-12 text-center">
-		<h1 class="mb-2 text-4xl font-bold tracking-tight">Fretboard Visualizer</h1>
-		<p class="text-muted-foreground">Click and drag to paint notes on the fretboard</p>
+<div class="flex min-h-screen flex-col p-4 sm:p-6 md:p-8">
+	<header class="mb-6 text-center sm:mb-8 md:mb-12">
+		<h1 class="mb-1 text-2xl font-bold tracking-tight sm:mb-2 sm:text-3xl md:text-4xl">
+			Fretboard Visualizer
+		</h1>
+		<p class="text-sm text-muted-foreground sm:text-base">
+			Tap or drag to paint notes on the fretboard
+		</p>
 	</header>
 
-	<main class="flex flex-1 flex-col items-center gap-6">
-		<div class="flex flex-col gap-4">
+	<main class="flex flex-1 flex-col items-center gap-4 sm:gap-6">
+		<div class="flex w-full flex-col gap-4 max-w-[1500px]">
 			<!-- Settings Section -->
 			<Collapsible.Root bind:open={settingsOpen} class="w-full">
 				<Collapsible.Trigger
@@ -1744,12 +1750,12 @@
 							: ''}"
 					/>
 				</Collapsible.Trigger>
-				<Collapsible.Content class="mt-2 rounded-lg border border-border/50 bg-card/50 p-4">
-					<div class="space-y-4">
+				<Collapsible.Content class="mt-2 rounded-lg border border-border/50 bg-card/50 p-3 sm:p-4">
+					<div class="space-y-3 sm:space-y-4">
 						<!-- Undo/Redo Section -->
-						<div class="flex items-center justify-between border-b border-border/50 pb-4">
+						<div class="flex items-center justify-between border-b border-border/50 pb-3 sm:pb-4">
 							<span class="text-sm font-medium text-muted-foreground">History</span>
-							<div class="flex gap-2">
+							<div class="flex gap-1 sm:gap-2">
 								<Button
 									onclick={undo}
 									variant="outline"
@@ -1758,8 +1764,8 @@
 									class="h-8 px-2"
 									title="Undo (Ctrl+Z)"
 								>
-									<Undo2 class="mr-1 h-4 w-4" />
-									Undo
+									<Undo2 class="h-4 w-4 sm:mr-1" />
+									<span class="hidden sm:inline">Undo</span>
 								</Button>
 								<Button
 									onclick={redo}
@@ -1769,16 +1775,18 @@
 									class="h-8 px-2"
 									title="Redo (Ctrl+Y)"
 								>
-									<Redo2 class="mr-1 h-4 w-4" />
-									Redo
+									<Redo2 class="h-4 w-4 sm:mr-1" />
+									<span class="hidden sm:inline">Redo</span>
 								</Button>
 							</div>
 						</div>
 
 						<!-- Presets Section -->
-						<div class="border-b border-border/50 pb-4">
-							<span class="mb-3 block text-sm font-medium text-muted-foreground">Presets</span>
-							<div class="flex flex-wrap items-end gap-3">
+						<div class="border-b border-border/50 pb-3 sm:pb-4">
+							<span class="mb-2 block text-sm font-medium text-muted-foreground sm:mb-3"
+								>Presets</span
+							>
+							<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
 								<!-- Save Preset -->
 								<div class="flex flex-col gap-1">
 									<span class="text-xs text-muted-foreground/70">Save As</span>
@@ -1787,7 +1795,7 @@
 											type="text"
 											bind:value={presetName}
 											placeholder="Preset name..."
-											class="h-9 w-36 rounded-md border border-border bg-background px-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+											class="h-9 w-full rounded-md border border-border bg-background px-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
 											onkeydown={(e) => e.key === 'Enter' && savePreset()}
 										/>
 										<Button
@@ -1807,7 +1815,7 @@
 										<span class="text-xs text-muted-foreground/70">Load Preset</span>
 										<div class="flex gap-1">
 											<Select.Root type="single" bind:value={selectedPresetName}>
-												<Select.Trigger class="h-9 w-36" onwheel={scrollPreset}>
+												<Select.Trigger class="h-9 w-full sm:w-36" onwheel={scrollPreset}>
 													{selectedPresetName || 'Select...'}
 												</Select.Trigger>
 												<Select.Content class="max-h-64 overflow-y-auto">
@@ -1864,7 +1872,9 @@
 						</div>
 
 						<!-- Display Settings -->
-						<div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+						<div
+							class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2"
+						>
 							<!-- Note Color -->
 							<div class="flex items-center gap-2">
 								<span class="text-sm text-muted-foreground">Color</span>
@@ -1904,27 +1914,30 @@
 								</div>
 							</div>
 
-							<!-- Toggle Options -->
-							<label class="flex cursor-pointer items-center gap-2">
-								<Switch bind:checked={eraseSelectedColorOnly} />
-								<span class="text-sm text-muted-foreground">Erase color only</span>
-							</label>
+							<!-- Toggle Options - wrapped in a container that stacks on mobile -->
+							<div class="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6">
+								<label class="flex cursor-pointer items-center gap-2">
+									<Switch bind:checked={eraseSelectedColorOnly} />
+									<span class="text-sm text-muted-foreground">Erase color only</span>
+								</label>
 
-							<label class="flex cursor-pointer items-center gap-2">
-								<Switch bind:checked={showIntervals} />
-								<span class="text-sm text-muted-foreground">Intervals</span>
-							</label>
+								<label class="flex cursor-pointer items-center gap-2">
+									<Switch bind:checked={showIntervals} />
+									<span class="text-sm text-muted-foreground">Intervals</span>
+								</label>
 
-							<label class="flex cursor-pointer items-center gap-2">
-								<Switch bind:checked={useFlats} />
-								<span class="text-sm text-muted-foreground">Flats</span>
-							</label>
+								<label class="flex cursor-pointer items-center gap-2">
+									<Switch bind:checked={useFlats} />
+									<span class="text-sm text-muted-foreground">Flats</span>
+								</label>
+							</div>
 						</div>
 
 						<!-- Scale Selection -->
-						<div class="border-t border-border/50 pt-4">
-							<span class="mb-3 block text-sm font-medium text-muted-foreground">Scale</span>
-							<div class="flex flex-wrap items-end gap-3">
+						<div class="border-t border-border/50 pt-3 sm:pt-4">
+							<span class="mb-2 block text-sm font-medium text-muted-foreground sm:mb-3">Scale</span
+							>
+							<div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
 								<!-- Key Selection -->
 								<div class="flex flex-col gap-1">
 									<span class="flex items-center gap-1 text-xs text-muted-foreground/70">
@@ -1932,7 +1945,7 @@
 										<Zap class="h-3 w-3" />
 									</span>
 									<Select.Root type="single" bind:value={selectedKey}>
-										<Select.Trigger class="w-20" onwheel={scrollKey}>
+										<Select.Trigger class="w-full sm:w-20" onwheel={scrollKey}>
 											{getDisplayNote(selectedKey)}
 										</Select.Trigger>
 										<Select.Content class="max-h-64 overflow-y-auto">
@@ -1946,11 +1959,9 @@
 								<!-- Major/Minor Toggle -->
 								<div class="flex flex-col gap-1">
 									<span class="text-xs text-muted-foreground/70">Mode</span>
-									<div
-										class="flex items-center rounded-md border border-border bg-background p-1"
-									>
+									<div class="flex items-center rounded-md border border-border bg-background p-1">
 										<button
-											class="rounded px-3 py-1 text-sm transition-colors {isMajor
+											class="rounded px-2 py-1 text-sm transition-colors sm:px-3 {isMajor
 												? 'bg-primary text-primary-foreground'
 												: 'text-muted-foreground hover:text-foreground'}"
 											onclick={() => (isMajor = true)}
@@ -1958,7 +1969,7 @@
 											Major
 										</button>
 										<button
-											class="rounded px-3 py-1 text-sm transition-colors {!isMajor
+											class="rounded px-2 py-1 text-sm transition-colors sm:px-3 {!isMajor
 												? 'bg-primary text-primary-foreground'
 												: 'text-muted-foreground hover:text-foreground'}"
 											onclick={() => (isMajor = false)}
@@ -1972,7 +1983,7 @@
 								<div class="flex flex-col gap-1">
 									<span class="text-xs text-muted-foreground/70">Scale</span>
 									<Select.Root type="single" bind:value={selectedScale}>
-										<Select.Trigger class="w-36" onwheel={scrollScale}>
+										<Select.Trigger class="w-full sm:w-36" onwheel={scrollScale}>
 											{#if selectedScale === 'melodic-minor'}
 												Melodic Minor
 											{:else}
@@ -1996,16 +2007,27 @@
 								</div>
 
 								<!-- Apply Button -->
-								<Button onclick={applyScale} variant="secondary" class="h-9 px-3" title="Apply scale">
-									<Plus class="h-4 w-4" />
-								</Button>
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70 opacity-0">Apply</span>
+									<Button
+										onclick={applyScale}
+										variant="secondary"
+										class="h-9 w-full px-3 sm:w-auto"
+										title="Apply scale"
+									>
+										<Plus class="h-4 w-4" />
+									</Button>
+								</div>
 
 								<!-- Remove Scale Notes -->
-								<div class="flex flex-col gap-1">
+								<div class="col-span-2 flex flex-col gap-1 sm:col-span-1">
 									<span class="text-xs text-muted-foreground/70">Remove</span>
 									<div class="flex gap-1">
 										<Select.Root type="single" bind:value={scaleToRemove}>
-											<Select.Trigger class="h-9 w-28" onwheel={scrollRemoveScale}>
+											<Select.Trigger
+												class="h-9 flex-1 sm:w-28 sm:flex-none"
+												onwheel={scrollRemoveScale}
+											>
 												{#if scaleToRemove === '3nps'}
 													3NPS
 												{:else if scaleToRemove === 'melodic-minor'}
@@ -2026,12 +2048,8 @@
 												<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
 											</Select.Content>
 										</Select.Root>
-										<Button
-											onclick={removeScaleNotes}
-											variant="ghost"
-											class="h-9 px-2 text-muted-foreground hover:text-destructive"
-										>
-											<Trash2 class="h-4 w-4" />
+										<Button onclick={removeScaleNotes} variant="secondary" class="h-9 px-2">
+											<Minus class="h-4 w-4" />
 										</Button>
 									</div>
 								</div>
@@ -2039,8 +2057,10 @@
 						</div>
 
 						<!-- Shape Overlays -->
-						<div class="border-t border-border/50 pt-4">
-							<span class="mb-3 flex items-center gap-1 text-sm font-medium text-muted-foreground">
+						<div class="border-t border-border/50 pt-3 sm:pt-4">
+							<span
+								class="mb-2 flex items-center gap-1 text-sm font-medium text-muted-foreground sm:mb-3"
+							>
 								Shape Overlays
 								<Tooltip.Provider>
 									<Tooltip.Root>
@@ -2053,7 +2073,9 @@
 									</Tooltip.Root>
 								</Tooltip.Provider>
 							</span>
-							<div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+							<div
+								class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2"
+							>
 								<!-- Pentatonic shapes toggle -->
 								<label class="flex cursor-pointer items-center gap-2">
 									<Switch bind:checked={showShapeBoxes} />
@@ -2077,7 +2099,7 @@
 									}}
 								>
 									<Select.Trigger
-										class="w-28 {!show3NPSShapeBoxes ? 'opacity-50' : ''}"
+										class="w-full sm:w-28 {!show3NPSShapeBoxes ? 'opacity-50' : ''}"
 										onwheel={show3NPSShapeBoxes ? scroll3NPSShape : undefined}
 									>
 										Shape {selected3NPSShape}
@@ -2096,9 +2118,11 @@
 						</div>
 
 						<!-- Tuning Configuration -->
-						<div class="border-t border-border/50 pt-4">
-							<span class="mb-3 block text-sm font-medium text-muted-foreground">Tuning</span>
-							<div class="flex flex-wrap items-end gap-3">
+						<div class="border-t border-border/50 pt-3 sm:pt-4">
+							<span class="mb-2 block text-sm font-medium text-muted-foreground sm:mb-3"
+								>Tuning</span
+							>
+							<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
 								<!-- Tuning Preset Selection -->
 								<div class="flex flex-col gap-1">
 									<span class="text-xs text-muted-foreground/70">Preset</span>
@@ -2107,7 +2131,7 @@
 										value={selectedTuningPreset}
 										onValueChange={(v) => applyTuningPreset(v)}
 									>
-										<Select.Trigger class="w-44" onwheel={scrollTuning}>
+										<Select.Trigger class="w-full sm:w-44" onwheel={scrollTuning}>
 											{tuningPresetNames[selectedTuningPreset] || 'Custom'}
 										</Select.Trigger>
 										<Select.Content class="max-h-64 overflow-y-auto">
@@ -2120,8 +2144,10 @@
 
 								<!-- Individual String Tuning -->
 								<div class="flex flex-col gap-1">
-									<span class="text-xs text-muted-foreground/70">Individual Strings (low → high)</span>
-									<div class="flex gap-1">
+									<span class="text-xs text-muted-foreground/70"
+										>Individual Strings (low → high)</span
+									>
+									<div class="grid grid-cols-6 gap-1">
 										{#each [5, 4, 3, 2, 1, 0] as stringIndex (stringIndex)}
 											<Select.Root
 												type="single"
@@ -2134,10 +2160,12 @@
 												}}
 											>
 												<Select.Trigger
-													class="h-9 w-14 justify-center px-1 [&>svg]:hidden"
+													class="h-9 w-full justify-center px-1 sm:w-14 [&>svg]:hidden"
 													onwheel={(e) => scrollStringTuning(e, stringIndex)}
 												>
-													<span class="w-full text-center">{getDisplayNote(strings[stringIndex])}</span>
+													<span class="w-full text-center"
+														>{getDisplayNote(strings[stringIndex])}</span
+													>
 												</Select.Trigger>
 												<Select.Content class="max-h-64 overflow-y-auto">
 													{#each chromaticScale as note (note)}
@@ -2152,7 +2180,7 @@
 						</div>
 
 						<!-- Clear All Button -->
-						<div class="border-t border-border/50 pt-4">
+						<div class="border-t border-border/50 pt-3 sm:pt-4">
 							<Button variant="secondary" onclick={clearAll} class="w-full">Clear All Notes</Button>
 						</div>
 					</div>
@@ -2161,101 +2189,102 @@
 
 			<!-- Fretboard -->
 			<div
-				class="relative overflow-x-auto rounded-xl border border-border/50 bg-transparent px-6 pb-6 pt-12"
+				class="overflow-x-auto rounded-xl border border-border/50 bg-transparent"
 			>
-				<!-- Pentatonic shape overlays using SVG (only in standard tuning) -->
-				{#if showShapeBoxes && activeShapes.length > 0 && selectedTuningPreset === 'standard'}
-					<svg
-						class="pointer-events-none absolute inset-0 z-10"
-						style="top: 48px; left: 24px; width: calc(100% - 48px); height: 300px;"
-					>
-						{#each activeShapes as shape (shape.name + '-' + shape.startFret)}
-							{#if isShapeVisible(shape) && shape.path}
+				<!-- Inner wrapper with fixed width to ensure proper scrolling -->
+				<div class="relative px-6 pb-6 pt-12" style="min-width: 1464px;">
+					<!-- Pentatonic shape overlays using SVG (only in standard tuning) -->
+					{#if showShapeBoxes && activeShapes.length > 0 && selectedTuningPreset === 'standard'}
+						<svg
+							class="pointer-events-none absolute z-10"
+							style="top: 48px; left: 24px; width: 1416px; height: 300px;"
+						>
+							{#each activeShapes as shape (shape.name + '-' + shape.startFret)}
+								{#if isShapeVisible(shape) && shape.path}
+									{@const colorIdx = getPentatonicShapeColorIndex(shape.name)}
+									<path
+										d={generateShapePath(shape)}
+										fill={shapeColors[colorIdx]}
+										stroke={shapeBorderColors[colorIdx]}
+										stroke-width="2"
+										stroke-linejoin="round"
+									/>
+								{/if}
+							{/each}
+						</svg>
+
+						<!-- Pentatonic shape labels -->
+						{#each activeShapes as shape (shape.name + '-' + shape.startFret + '-label')}
+							{#if shape.path && isShapeLabelVisible(shape)}
+								{@const labelPos = getShapeLabelPosition(shape)}
 								{@const colorIdx = getPentatonicShapeColorIndex(shape.name)}
-								<path
-									d={generateShapePath(shape)}
-									fill={shapeColors[colorIdx]}
-									stroke={shapeBorderColors[colorIdx]}
-									stroke-width="2"
-									stroke-linejoin="round"
-								/>
+								<div
+									class="pointer-events-none absolute z-20"
+									style="left: {labelPos.x + 24}px; top: {labelPos.y +
+										40}px; transform: translateX(-50%);"
+								>
+									<span
+										class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
+										style="background-color: {shapeColors[colorIdx]}; color: {shapeBorderColors[
+											colorIdx
+										]}; border: 1px solid {shapeBorderColors[colorIdx]};"
+									>
+										Shape {getPentatonicShapeDisplayName(shape.name)}
+									</span>
+								</div>
 							{/if}
 						{/each}
-					</svg>
+					{/if}
 
-					<!-- Pentatonic shape labels -->
-					{#each activeShapes as shape (shape.name + '-' + shape.startFret + '-label')}
-						{#if shape.path && isShapeLabelVisible(shape)}
-							{@const labelPos = getShapeLabelPosition(shape)}
-							{@const colorIdx = getPentatonicShapeColorIndex(shape.name)}
-							<div
-								class="pointer-events-none absolute z-20"
-								style="left: {labelPos.x + 24}px; top: {labelPos.y +
-									40}px; transform: translateX(-50%);"
-							>
-								<span
-									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
-									style="background-color: {shapeColors[
-										colorIdx
-									]}; color: {shapeBorderColors[
-										colorIdx
-									]}; border: 1px solid {shapeBorderColors[colorIdx]};"
+					<!-- 3NPS shape overlays (only in standard tuning) -->
+					{#if show3NPSShapeBoxes && active3NPSShapes.length > 0 && selectedTuningPreset === 'standard'}
+						<svg
+							class="pointer-events-none absolute z-10"
+							style="top: 48px; left: 24px; width: 1416px; height: 300px;"
+						>
+							{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret)}
+								{#if isShapeVisible(shape) && shape.path}
+									<path
+										d={generateShapePath(shape)}
+										fill={threeNPSShapeColors[shape.colorIndex]}
+										stroke={threeNPSBorderColors[shape.colorIndex]}
+										stroke-width="2"
+										stroke-linejoin="round"
+									/>
+								{/if}
+							{/each}
+						</svg>
+
+						<!-- 3NPS shape labels -->
+						{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret + '-label')}
+							{#if shape.path && isShapeLabelVisible(shape)}
+								{@const labelPos = getShapeLabelPosition(shape)}
+								<div
+									class="pointer-events-none absolute z-20"
+									style="left: {labelPos.x + 24}px; top: {labelPos.y +
+										40}px; transform: translateX(-50%);"
 								>
-									Shape {getPentatonicShapeDisplayName(shape.name)}
-								</span>
-							</div>
-						{/if}
-					{/each}
-				{/if}
-
-				<!-- 3NPS shape overlays (only in standard tuning) -->
-				{#if show3NPSShapeBoxes && active3NPSShapes.length > 0 && selectedTuningPreset === 'standard'}
-					<svg
-						class="pointer-events-none absolute inset-0 z-10"
-						style="top: 48px; left: 24px; width: calc(100% - 48px); height: 300px;"
-					>
-						{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret)}
-							{#if isShapeVisible(shape) && shape.path}
-								<path
-									d={generateShapePath(shape)}
-									fill={threeNPSShapeColors[shape.colorIndex]}
-									stroke={threeNPSBorderColors[shape.colorIndex]}
-									stroke-width="2"
-									stroke-linejoin="round"
-								/>
+									<span
+										class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
+										style="background-color: {threeNPSShapeColors[
+											shape.colorIndex
+										]}; color: {threeNPSBorderColors[
+											shape.colorIndex
+										]}; border: 1px solid {threeNPSBorderColors[shape.colorIndex]};"
+									>
+										3NPS {shape.name}
+									</span>
+								</div>
 							{/if}
 						{/each}
-					</svg>
+					{/if}
 
-					<!-- 3NPS shape labels -->
-					{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret + '-label')}
-						{#if shape.path && isShapeLabelVisible(shape)}
-							{@const labelPos = getShapeLabelPosition(shape)}
-							<div
-								class="pointer-events-none absolute z-20"
-								style="left: {labelPos.x + 24}px; top: {labelPos.y +
-									40}px; transform: translateX(-50%);"
-							>
-								<span
-									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
-									style="background-color: {threeNPSShapeColors[
-										shape.colorIndex
-									]}; color: {threeNPSBorderColors[
-										shape.colorIndex
-									]}; border: 1px solid {threeNPSBorderColors[shape.colorIndex]};"
-								>
-									3NPS {shape.name}
-								</span>
-							</div>
-						{/if}
-					{/each}
-				{/if}
-
-				<!-- Fret numbers -->
+					<!-- Fret numbers -->
 				<div class="mb-3 flex pl-10">
 					{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
 						<div
-							class="text-center text-xs font-medium text-muted-foreground {fretIndex === 0
+							class="flex-shrink-0 text-center text-xs font-medium text-muted-foreground {fretIndex ===
+							0
 								? 'w-8'
 								: 'w-14'}"
 						>
@@ -2269,7 +2298,9 @@
 					<ContextMenu.Root>
 						<ContextMenu.Trigger>
 							<div class="group relative flex items-center">
-								<div class="w-10 text-center text-sm font-semibold text-muted-foreground">
+								<div
+									class="w-10 flex-shrink-0 text-center text-sm font-semibold text-muted-foreground"
+								>
 									{stringName}
 								</div>
 
@@ -2281,25 +2312,45 @@
 
 								{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
 									<div
-										class="relative z-20 flex h-10 items-center justify-center {fretIndex === 0
+										class="relative z-20 flex h-10 flex-shrink-0 items-center justify-center {fretIndex ===
+										0
 											? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30'
 											: 'w-14 border-r-2 border-r-zinc-600'}"
 									>
 										<!-- Circular hit area for painting -->
 										<button
-											class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+											class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
 											onmousedown={() => startPainting(stringIndex, fretIndex)}
 											onmouseenter={() => handlePaintOver(stringIndex, fretIndex)}
+											ontouchstart={() => startPainting(stringIndex, fretIndex)}
+											ontouchmove={(e) => {
+												const touch = e.touches[0];
+												const target = document.elementFromPoint(touch.clientX, touch.clientY);
+												if (target?.closest('button')) {
+													const btn = target.closest('button');
+													const parent = btn?.parentElement;
+													if (parent) {
+														const row = parent.parentElement;
+														const cells = row?.querySelectorAll(':scope > div');
+														if (cells) {
+															const cellIndex = Array.from(cells).indexOf(parent);
+															if (cellIndex >= 0) {
+																handlePaintOver(stringIndex, cellIndex);
+															}
+														}
+													}
+												}
+											}}
 										>
 											{#if isSelected(stringIndex, fretIndex)}
 												{@const noteColor = getNoteColor(stringIndex, fretIndex)}
 												{@const inShape = isNoteIn3NPSShape(stringIndex, fretIndex)}
 												{@const borderColor = inShape ? getComplementaryColor(noteColor) : 'white'}
 												<div
-													class="flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-lg transition-transform hover:scale-110"
-													style="background-color: {noteColor}bf; box-shadow: 0 10px 15px -3px {noteColor}80; border-color: {borderColor};"
+													class="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
+													style="background-color: {noteColor}bf; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
 												>
-													<span class="text-[10px] font-bold text-white drop-shadow-md"
+													<span class="text-[10px] font-bold text-white"
 														>{getNoteDisplay(stringIndex, fretIndex)}</span
 													>
 												</div>
@@ -2325,7 +2376,11 @@
 				<!-- Fret markers -->
 				<div class="mt-3 flex pl-10">
 					{#each { length: fretCount + 1 }, fretIndex (fretIndex)}
-						<div class="flex items-center justify-center gap-1 {fretIndex === 0 ? 'w-8' : 'w-14'}">
+						<div
+							class="flex flex-shrink-0 items-center justify-center gap-1 {fretIndex === 0
+								? 'w-8'
+								: 'w-14'}"
+						>
 							{#if singleDotFrets.includes(fretIndex)}
 								<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
 							{:else if doubleDotFrets.includes(fretIndex)}
@@ -2334,6 +2389,7 @@
 							{/if}
 						</div>
 					{/each}
+				</div>
 				</div>
 			</div>
 		</div>
