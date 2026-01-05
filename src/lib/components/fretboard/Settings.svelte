@@ -7,11 +7,9 @@
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import Info from '@lucide/svelte/icons/info';
 	import Plus from '@lucide/svelte/icons/plus';
-	import Redo2 from '@lucide/svelte/icons/redo-2';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Minus from '@lucide/svelte/icons/minus';
-	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Zap from '@lucide/svelte/icons/zap';
 
 	import {
@@ -189,35 +187,6 @@
 	</Collapsible.Trigger>
 	<Collapsible.Content class="mt-2 rounded-lg border border-border/50 bg-card/50 p-3 sm:p-4">
 		<div class="space-y-3 sm:space-y-4">
-			<!-- Undo/Redo Section -->
-			<div class="flex items-center justify-between border-b border-border/50 pb-3 sm:pb-4">
-				<span class="text-sm font-medium text-muted-foreground">History</span>
-				<div class="flex gap-1 sm:gap-2">
-					<Button
-						onclick={store.undo}
-						variant="outline"
-						size="sm"
-						disabled={!store.canUndo}
-						class="h-8 px-2"
-						title="Undo (Ctrl+Z)"
-					>
-						<Undo2 class="h-4 w-4 sm:mr-1" />
-						<span class="hidden sm:inline">Undo</span>
-					</Button>
-					<Button
-						onclick={store.redo}
-						variant="outline"
-						size="sm"
-						disabled={!store.canRedo}
-						class="h-8 px-2"
-						title="Redo (Ctrl+Y)"
-					>
-						<Redo2 class="h-4 w-4 sm:mr-1" />
-						<span class="hidden sm:inline">Redo</span>
-					</Button>
-				</div>
-			</div>
-
 			<!-- Presets Section -->
 			<div class="border-b border-border/50 pb-3 sm:pb-4">
 				<span class="mb-2 block text-sm font-medium text-muted-foreground sm:mb-3">Presets</span>

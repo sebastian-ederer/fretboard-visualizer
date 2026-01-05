@@ -117,3 +117,17 @@ export function getPentatonicShapeDisplayName(minorShapeName: string, appliedIsM
 	}
 	return minorShapeName;
 }
+
+/**
+ * Check if a note at a given position is the root note of the selected key
+ */
+export function isRootNote(
+	stringIndex: number,
+	fretIndex: number,
+	stringBaseNotes: number[],
+	selectedKey: string
+): boolean {
+	const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
+	const rootIndex = getNoteIndex(selectedKey);
+	return noteIndex === rootIndex;
+}

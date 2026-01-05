@@ -319,7 +319,11 @@ function createFretboardStore() {
 
 	function startPainting(stringIndex: number, fretIndex: number) {
 		state.isPainting = true;
-		state.paintMode = isSelected(stringIndex, fretIndex) ? 'remove' : 'add';
+		const key = `${stringIndex}-${fretIndex}`;
+		const existingColor = state.selectedFrets[key];
+		// Only remove if note exists AND has the same color as selected
+		// Otherwise, paint (add or repaint with new color)
+		state.paintMode = existingColor && existingColor === state.selectedColor ? 'remove' : 'add';
 		applyPaint(stringIndex, fretIndex);
 	}
 
@@ -437,6 +441,49 @@ function createFretboardStore() {
 		}
 	}
 
+	// Export functionality
+	let fretboardElement: HTMLElement | null = null;
+
+	function setFretboardElement(element: HTMLElement | null) {
+		fretboardElement = element;
+	}
+
+	function downloadFile(dataUrl: string, filename: string) {
+		const link = document.createElement('a');
+		link.download = filename;
+		link.href = dataUrl;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+	}
+
+	async function exportAsPng() {
+		if (!fretboardElement) return;
+		const { toPng } = await import('html-to-image');
+		try {
+			const dataUrl = await toPng(fretboardElement, {
+				backgroundColor: '#09090b',
+				pixelRatio: 2
+			});
+			downloadFile(dataUrl, 'fretboard.png');
+		} catch (err) {
+			console.error('Failed to export PNG:', err);
+		}
+	}
+
+	async function exportAsSvg() {
+		if (!fretboardElement) return;
+		const { toSvg } = await import('html-to-image');
+		try {
+			const dataUrl = await toSvg(fretboardElement, {
+				backgroundColor: '#09090b'
+			});
+			downloadFile(dataUrl, 'fretboard.svg');
+		} catch (err) {
+			console.error('Failed to export SVG:', err);
+		}
+	}
+
 	return {
 		// Expose state object directly for reactive access
 		state,
@@ -470,7 +517,10 @@ function createFretboardStore() {
 		savePreset,
 		loadPreset,
 		deletePreset,
-		recalculateShapes
+		recalculateShapes,
+		setFretboardElement,
+		exportAsPng,
+		exportAsSvg
 	};
 }
 

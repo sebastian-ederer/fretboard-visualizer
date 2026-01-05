@@ -6,7 +6,7 @@
 		STRING_THICKNESS_BASE,
 		STRING_THICKNESS_INCREMENT
 	} from '$lib/fretboard/constants';
-	import { getNoteDisplay } from '$lib/fretboard/music-utils';
+	import { getNoteDisplay, isRootNote } from '$lib/fretboard/music-utils';
 	import { getComplementaryColor } from '$lib/fretboard/color-utils';
 	import { isNoteIn3NPSShape } from '$lib/fretboard/shape-utils';
 	import ShapeOverlay from './ShapeOverlay.svelte';
@@ -20,6 +20,12 @@
 
 	// Shorthand access to state
 	const s = $derived(store.state);
+
+	// Reference to the fretboard element for export
+	let fretboardElement: HTMLDivElement;
+	$effect(() => {
+		store.setFretboardElement(fretboardElement);
+	});
 
 	function getNoteDisplayText(stringIndex: number, fretIndex: number): string {
 		return getNoteDisplay(stringIndex, fretIndex, store.stringBaseNotes, s.selectedKey, s.showIntervals, s.useFlats);
@@ -57,7 +63,7 @@
 	style="-webkit-overflow-scrolling: touch;"
 >
 	<!-- Inner wrapper with fixed width to ensure proper scrolling -->
-	<div class="relative isolate bg-background px-6 pb-6 pt-12" style="min-width: 1464px;">
+	<div bind:this={fretboardElement} class="relative isolate bg-background px-6 pb-6 pt-12" style="min-width: 1464px;">
 		<!-- Pentatonic shape overlays (only in standard tuning) -->
 		{#if s.showShapeBoxes && s.activeShapes.length > 0 && s.selectedTuningPreset === 'standard'}
 			<ShapeOverlay shapes={s.activeShapes} type="pentatonic" appliedIsMajor={s.appliedIsMajor} />
@@ -115,9 +121,10 @@
 								{@const noteColor = store.getNoteColor(stringIndex, fretIndex)}
 								{@const inShape = checkNoteIn3NPSShape(stringIndex, fretIndex)}
 								{@const borderColor = inShape ? getComplementaryColor(noteColor) : 'white'}
+								{@const isRoot = isRootNote(stringIndex, fretIndex, store.stringBaseNotes, s.selectedKey)}
 								<div
 									class="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
-									style="background-color: {noteColor}bf; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
+									style="background-color: {noteColor}{isRoot ? '' : 'bf'}; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
 								>
 									<span class="text-[10px] font-bold text-white">
 										{getNoteDisplayText(stringIndex, fretIndex)}
