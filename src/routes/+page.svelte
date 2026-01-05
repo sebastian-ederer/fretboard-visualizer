@@ -9,11 +9,11 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import Undo2 from '@lucide/svelte/icons/undo-2';
+	import Zap from '@lucide/svelte/icons/zap';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 
-	// Standard guitar tuning (high to low in display)
-	const strings = ['E', 'B', 'G', 'D', 'A', 'E'];
+	// Fretboard constants
 	const fretCount = 24;
 
 	// Fret markers (single dots and double dots at 12th and 24th)
@@ -21,11 +21,85 @@
 	const doubleDotFrets = [12, 24];
 
 	// Chromatic scale for note calculation
-	const chromaticScale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-	// Base note index for each string (E=4, B=11, G=7, D=2, A=9, E=4)
-	const stringBaseNotes = [4, 11, 7, 2, 9, 4];
+	const chromaticScaleSharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+	const chromaticScaleFlat = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+	// Notation preference (sharp or flat)
+	let useFlats = $state(false);
+
+	// Get the current chromatic scale based on notation preference
+	let chromaticScale = $derived(useFlats ? chromaticScaleFlat : chromaticScaleSharp);
+
+	// Get the chromatic index of a note (works with both sharp and flat notation)
+	function getNoteIndex(note: string): number {
+		let idx = chromaticScaleSharp.indexOf(note);
+		if (idx === -1) {
+			idx = chromaticScaleFlat.indexOf(note);
+		}
+		return idx;
+	}
+
+	// Convert a note to the current notation (sharp or flat)
+	function getDisplayNote(note: string): string {
+		const idx = getNoteIndex(note);
+		if (idx === -1) return note;
+		return chromaticScale[idx];
+	}
+
+	// Tuning presets (high to low string, as displayed)
+	const tuningPresets: Record<string, string[]> = {
+		standard: ['E', 'B', 'G', 'D', 'A', 'E'],
+		'drop-d': ['E', 'B', 'G', 'D', 'A', 'D'],
+		dadgad: ['D', 'A', 'G', 'D', 'A', 'D'],
+		'open-g': ['D', 'B', 'G', 'D', 'G', 'D'],
+		'open-d': ['D', 'A', 'F#', 'D', 'A', 'D'],
+		'open-e': ['E', 'B', 'G#', 'E', 'B', 'E'],
+		'half-step-down': ['D#', 'A#', 'F#', 'C#', 'G#', 'D#'],
+		'full-step-down': ['D', 'A', 'F', 'C', 'G', 'D'],
+		'drop-c': ['D', 'A', 'F', 'C', 'G', 'C']
+	};
+
+	const tuningPresetNames: Record<string, string> = {
+		standard: 'Standard (EADGBE)',
+		'drop-d': 'Drop D',
+		dadgad: 'DADGAD',
+		'open-g': 'Open G',
+		'open-d': 'Open D',
+		'open-e': 'Open E',
+		'half-step-down': 'Half Step Down',
+		'full-step-down': 'Full Step Down',
+		'drop-c': 'Drop C',
+		custom: 'Custom'
+	};
+
+	// Current tuning state (high to low)
+	let selectedTuningPreset = $state('standard');
+	let strings: string[] = $state(['E', 'B', 'G', 'D', 'A', 'E']);
+
+	// Calculate base note indices from string names
+	// Always use sharp scale for internal index lookup to ensure consistency
+	function getStringBaseNotes(tuning: string[]): number[] {
+		return tuning.map((note) => {
+			// Try sharp scale first
+			let idx = chromaticScaleSharp.indexOf(note);
+			if (idx === -1) {
+				// Try flat scale
+				idx = chromaticScaleFlat.indexOf(note);
+			}
+			return idx;
+		});
+	}
+
+	// Derived base notes from current tuning
+	let stringBaseNotes = $derived(getStringBaseNotes(strings));
 
 	function getNoteName(stringIndex: number, fretIndex: number): string {
+		const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
+		return chromaticScale[noteIndex];
+	}
+
+	// Get note name for display on fretboard (always uses current notation)
+	function getFretboardNoteName(stringIndex: number, fretIndex: number): string {
 		const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
 		return chromaticScale[noteIndex];
 	}
@@ -45,7 +119,7 @@
 	let selectedKey = $state('C');
 	let previousKey = $state('C');
 	let isMajor = $state(true);
-	let previousIsMajor = $state(true);
+	let appliedIsMajor = $state(true); // Tracks the major/minor when Apply was clicked
 	let selectedScale = $state('pentatonic');
 	let lastAppliedScale: string | null = $state(null);
 	let scaleToRemove = $state('ionian');
@@ -76,6 +150,7 @@
 		selectedFrets: Record<string, string>;
 		selectedKey: string;
 		isMajor: boolean;
+		appliedIsMajor: boolean;
 		selectedScale: string;
 		selectedColor: string;
 		customColor: string;
@@ -83,9 +158,12 @@
 		show3NPSShapeBoxes: boolean;
 		selected3NPSShape: number;
 		showIntervals: boolean;
+		useFlats: boolean;
 		eraseSelectedColorOnly: boolean;
 		lastAppliedScale: string | null;
 		scaleToRemove: string;
+		strings: string[];
+		selectedTuningPreset: string;
 	}
 
 	// History stacks for undo/redo
@@ -104,6 +182,7 @@
 		selectedFrets: Record<string, string>;
 		selectedKey: string;
 		isMajor: boolean;
+		appliedIsMajor: boolean;
 		selectedScale: string;
 		selectedColor: string;
 		customColor: string;
@@ -111,9 +190,12 @@
 		show3NPSShapeBoxes: boolean;
 		selected3NPSShape: number;
 		showIntervals: boolean;
+		useFlats: boolean;
 		eraseSelectedColorOnly: boolean;
 		lastAppliedScale: string | null;
 		scaleToRemove: string;
+		strings: string[];
+		selectedTuningPreset: string;
 	}
 
 	let savedPresets: Record<string, Preset> = $state({});
@@ -123,7 +205,7 @@
 	// Scroll wheel handlers for dropdowns
 	function scrollKey(e: WheelEvent) {
 		e.preventDefault();
-		const idx = chromaticScale.indexOf(selectedKey);
+		const idx = getNoteIndex(selectedKey);
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % chromaticScale.length
@@ -205,6 +287,45 @@
 		selectedPresetName = presetNames[newIdx];
 	}
 
+	// Tuning functions
+	const tuningPresetKeys = Object.keys(tuningPresets);
+
+	function scrollTuning(e: WheelEvent) {
+		e.preventDefault();
+		let idx = tuningPresetKeys.indexOf(selectedTuningPreset);
+		// If on custom tuning, start from beginning
+		if (idx === -1) idx = e.deltaY > 0 ? -1 : 0;
+		const newIdx =
+			e.deltaY > 0
+				? (idx + 1) % tuningPresetKeys.length
+				: (idx - 1 + tuningPresetKeys.length) % tuningPresetKeys.length;
+		applyTuningPreset(tuningPresetKeys[newIdx]);
+	}
+
+	function applyTuningPreset(presetKey: string) {
+		if (tuningPresets[presetKey]) {
+			selectedTuningPreset = presetKey;
+			strings = [...tuningPresets[presetKey]];
+			pushHistory(true);
+		}
+	}
+
+	function changeStringTuning(stringIndex: number, direction: number) {
+		const currentNote = strings[stringIndex];
+		const currentIdx = getNoteIndex(currentNote);
+		const newIdx = (currentIdx + direction + 12) % 12;
+		strings[stringIndex] = chromaticScale[newIdx];
+		strings = [...strings]; // Trigger reactivity
+		selectedTuningPreset = 'custom';
+		pushHistory(true);
+	}
+
+	function scrollStringTuning(e: WheelEvent, stringIndex: number) {
+		e.preventDefault();
+		const direction = e.deltaY > 0 ? -1 : 1; // Scroll up = higher pitch
+		changeStringTuning(stringIndex, direction);
+	}
+
 	// ============================================
 	// HISTORY MANAGEMENT (Undo/Redo)
 	// ============================================
@@ -215,6 +336,7 @@
 			selectedFrets: { ...selectedFrets },
 			selectedKey,
 			isMajor,
+			appliedIsMajor,
 			selectedScale,
 			selectedColor,
 			customColor,
@@ -222,9 +344,12 @@
 			show3NPSShapeBoxes,
 			selected3NPSShape,
 			showIntervals,
+			useFlats,
 			eraseSelectedColorOnly,
 			lastAppliedScale,
-			scaleToRemove
+			scaleToRemove,
+			strings: [...strings],
+			selectedTuningPreset
 		};
 	}
 
@@ -342,7 +467,7 @@
 		selectedKey = state.selectedKey;
 		previousKey = state.selectedKey;
 		isMajor = state.isMajor;
-		previousIsMajor = state.isMajor;
+		appliedIsMajor = state.appliedIsMajor ?? state.isMajor;
 		selectedScale = state.selectedScale;
 		selectedColor = state.selectedColor;
 		customColor = state.customColor;
@@ -350,9 +475,12 @@
 		show3NPSShapeBoxes = state.show3NPSShapeBoxes;
 		selected3NPSShape = state.selected3NPSShape;
 		showIntervals = state.showIntervals;
+		useFlats = state.useFlats ?? false;
 		eraseSelectedColorOnly = state.eraseSelectedColorOnly;
 		lastAppliedScale = state.lastAppliedScale;
 		scaleToRemove = state.scaleToRemove;
+		strings = state.strings ? [...state.strings] : ['E', 'B', 'G', 'D', 'A', 'E'];
+		selectedTuningPreset = state.selectedTuningPreset || 'standard';
 
 		// Recalculate shapes for restored state
 		activeShapes = calculatePentatonicShapes(selectedKey);
@@ -411,22 +539,15 @@
 		selectedFrets = newSelectedFrets;
 	}
 
-	// Reactive transposition when key or major/minor changes
+	// Reactive transposition when key changes
 	$effect(() => {
 		if (!isLoaded) return;
 
-		const oldKeyIndex = chromaticScale.indexOf(previousKey);
-		const newKeyIndex = chromaticScale.indexOf(selectedKey);
-		let semitoneShift = newKeyIndex - oldKeyIndex;
+		const oldKeyIndex = getNoteIndex(previousKey);
+		const newKeyIndex = getNoteIndex(selectedKey);
+		const semitoneShift = newKeyIndex - oldKeyIndex;
 
-		// Handle major/minor change (shift by 3 semitones for relative major/minor)
-		if (isMajor !== previousIsMajor) {
-			// When switching from minor to major, go up 3 semitones (relative major)
-			// When switching from major to minor, go down 3 semitones (relative minor)
-			semitoneShift += isMajor ? 3 : -3;
-		}
-
-		if (semitoneShift !== 0 || isMajor !== previousIsMajor) {
+		if (semitoneShift !== 0) {
 			transposeNotes(semitoneShift);
 
 			// Recalculate shapes for new key
@@ -438,9 +559,8 @@
 			pushHistory(true);
 		}
 
-		// Update previous values
+		// Update previous key
 		previousKey = selectedKey;
-		previousIsMajor = isMajor;
 	});
 
 	// Load state from localStorage on mount
@@ -458,7 +578,11 @@
 				}
 				if (state.isMajor !== undefined) {
 					isMajor = state.isMajor;
-					previousIsMajor = state.isMajor;
+				}
+				if (state.appliedIsMajor !== undefined) {
+					appliedIsMajor = state.appliedIsMajor;
+				} else if (state.isMajor !== undefined) {
+					appliedIsMajor = state.isMajor;
 				}
 				if (state.selectedScale) selectedScale = state.selectedScale;
 				if (state.selectedColor) selectedColor = state.selectedColor;
@@ -467,10 +591,13 @@
 				if (state.show3NPSShapeBoxes !== undefined) show3NPSShapeBoxes = state.show3NPSShapeBoxes;
 				if (state.selected3NPSShape !== undefined) selected3NPSShape = state.selected3NPSShape;
 				if (state.showIntervals !== undefined) showIntervals = state.showIntervals;
+				if (state.useFlats !== undefined) useFlats = state.useFlats;
 				if (state.eraseSelectedColorOnly !== undefined)
 					eraseSelectedColorOnly = state.eraseSelectedColorOnly;
 				if (state.lastAppliedScale !== undefined) lastAppliedScale = state.lastAppliedScale;
 				if (state.scaleToRemove) scaleToRemove = state.scaleToRemove;
+				if (state.strings) strings = state.strings;
+				if (state.selectedTuningPreset) selectedTuningPreset = state.selectedTuningPreset;
 
 				// Recalculate shapes based on loaded state
 				activeShapes = calculatePentatonicShapes(selectedKey);
@@ -497,6 +624,7 @@
 				selectedFrets,
 				selectedKey,
 				isMajor,
+				appliedIsMajor,
 				selectedScale,
 				selectedColor,
 				customColor,
@@ -504,9 +632,12 @@
 				show3NPSShapeBoxes,
 				selected3NPSShape,
 				showIntervals,
+				useFlats,
 				eraseSelectedColorOnly,
 				lastAppliedScale,
-				scaleToRemove
+				scaleToRemove,
+				strings,
+				selectedTuningPreset
 			};
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 		} catch (e) {
@@ -522,6 +653,7 @@
 			selectedFrets: { ...selectedFrets },
 			selectedKey,
 			isMajor,
+			appliedIsMajor,
 			selectedScale,
 			selectedColor,
 			customColor,
@@ -529,9 +661,12 @@
 			show3NPSShapeBoxes,
 			selected3NPSShape,
 			showIntervals,
+			useFlats,
 			eraseSelectedColorOnly,
 			lastAppliedScale,
-			scaleToRemove
+			scaleToRemove,
+			strings: [...strings],
+			selectedTuningPreset
 		};
 
 		savedPresets[presetName.trim()] = preset;
@@ -556,7 +691,7 @@
 		selectedKey = preset.selectedKey;
 		previousKey = preset.selectedKey;
 		isMajor = preset.isMajor;
-		previousIsMajor = preset.isMajor;
+		appliedIsMajor = preset.appliedIsMajor ?? preset.isMajor;
 		selectedScale = preset.selectedScale;
 		selectedColor = preset.selectedColor;
 		customColor = preset.customColor;
@@ -564,9 +699,12 @@
 		show3NPSShapeBoxes = preset.show3NPSShapeBoxes;
 		selected3NPSShape = preset.selected3NPSShape;
 		showIntervals = preset.showIntervals;
+		useFlats = preset.useFlats ?? false;
 		eraseSelectedColorOnly = preset.eraseSelectedColorOnly;
 		lastAppliedScale = preset.lastAppliedScale;
 		scaleToRemove = preset.scaleToRemove;
+		strings = preset.strings ? [...preset.strings] : ['E', 'B', 'G', 'D', 'A', 'E'];
+		selectedTuningPreset = preset.selectedTuningPreset || 'standard';
 
 		// Recalculate shapes
 		activeShapes = calculatePentatonicShapes(selectedKey);
@@ -696,6 +834,7 @@
 		selectedFrets;
 		selectedKey;
 		isMajor;
+		appliedIsMajor;
 		selectedScale;
 		selectedColor;
 		customColor;
@@ -703,16 +842,19 @@
 		show3NPSShapeBoxes;
 		selected3NPSShape;
 		showIntervals;
+		useFlats;
 		eraseSelectedColorOnly;
 		lastAppliedScale;
 		scaleToRemove;
+		strings;
+		selectedTuningPreset;
 
 		saveToStorage();
 	});
 
 	function getIntervalName(stringIndex: number, fretIndex: number): string {
 		const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
-		const rootIndex = chromaticScale.indexOf(selectedKey);
+		const rootIndex = getNoteIndex(selectedKey);
 		const interval = (noteIndex - rootIndex + 12) % 12;
 		return intervalNames[interval];
 	}
@@ -988,14 +1130,14 @@
 	let show3NPSShapeBoxes = $state(true);
 
 	function getScaleNotes(key: string, major: boolean, scale: string): Set<number> {
-		const keyIndex = chromaticScale.indexOf(key);
+		const keyIndex = getNoteIndex(key);
 		const intervals = scaleIntervals[scale][major ? 'major' : 'minor'];
 		return new Set(intervals.map((interval) => (keyIndex + interval) % 12));
 	}
 
 	function getRootFret(key: string): number {
 		// Find the first occurrence of the root note on the low E string (string index 5)
-		const keyIndex = chromaticScale.indexOf(key);
+		const keyIndex = getNoteIndex(key);
 		const lowEBase = stringBaseNotes[5]; // E = 4
 		// Calculate fret where this note appears on low E
 		let fret = (keyIndex - lowEBase + 12) % 12;
@@ -1040,7 +1182,7 @@
 	function calculate3NPSShapes(key: string, shapeNumber: number): ActiveShape[] {
 		if (shapeNumber < 1 || shapeNumber > 7) return [];
 
-		const keyIndex = chromaticScale.indexOf(key);
+		const keyIndex = getNoteIndex(key);
 		const intervals = scaleIntervals['3nps'][isMajor ? 'major' : 'minor'];
 		const startDegree = shapeNumber - 1;
 
@@ -1217,6 +1359,29 @@
 		return false;
 	}
 
+	// Get the display name for a pentatonic shape based on major/minor mode
+	// Minor shapes 1-5 map to Major shapes 5,1,2,3,4 respectively
+	// Uses appliedIsMajor (set when Apply is clicked) instead of isMajor (current selection)
+	function getPentatonicShapeDisplayName(minorShapeName: string): string {
+		const minorNum = parseInt(minorShapeName);
+		if (isNaN(minorNum) || minorNum < 1 || minorNum > 5) return minorShapeName;
+
+		if (appliedIsMajor) {
+			// Convert minor shape number to major: ((n + 3) % 5) + 1
+			// Minor 1→Major 5, Minor 2→Major 1, Minor 3→Major 2, etc.
+			const majorNum = ((minorNum + 3) % 5) + 1;
+			return majorNum.toString();
+		}
+		return minorShapeName;
+	}
+
+	// Get the color index for a pentatonic shape based on its display number
+	function getPentatonicShapeColorIndex(minorShapeName: string): number {
+		const displayNum = parseInt(getPentatonicShapeDisplayName(minorShapeName));
+		if (isNaN(displayNum) || displayNum < 1 || displayNum > 5) return 0;
+		return (displayNum - 1) % shapeColors.length;
+	}
+
 	// Get center position for shape label
 	function getShapeLabelPosition(shape: ActiveShape): { x: number; y: number } {
 		if (shape.path) {
@@ -1274,8 +1439,9 @@
 			}
 		}
 
-		// Track the last applied scale (use 'pentatonic' if layering to allow further layering)
+		// Track the last applied scale and mode
 		lastAppliedScale = shouldLayer ? 'pentatonic' : selectedScale;
+		appliedIsMajor = isMajor;
 
 		pushHistory(true);
 	}
@@ -1691,6 +1857,15 @@
 							</div>
 							<Switch bind:checked={showIntervals} />
 						</div>
+						<div class="flex items-center justify-between">
+							<div>
+								<span class="block text-sm font-medium text-muted-foreground">Use flat notation</span>
+								<span class="text-xs text-muted-foreground/70"
+									>Display Db, Eb, Gb instead of C#, D#, F#</span
+								>
+							</div>
+							<Switch bind:checked={useFlats} />
+						</div>
 
 						<!-- Scale Selection -->
 						<div class="border-t border-border/50 pt-4">
@@ -1698,10 +1873,13 @@
 							<div class="flex flex-wrap items-end gap-3">
 								<!-- Key Selection -->
 								<div class="flex flex-col gap-1">
-									<span class="text-xs text-muted-foreground/70">Key</span>
+									<span class="flex items-center gap-1 text-xs text-muted-foreground/70">
+										Key
+										<Zap class="h-3 w-3" />
+									</span>
 									<Select.Root type="single" bind:value={selectedKey}>
 										<Select.Trigger class="w-20" onwheel={scrollKey}>
-											{selectedKey}
+											{getDisplayNote(selectedKey)}
 										</Select.Trigger>
 										<Select.Content class="max-h-64 overflow-y-auto">
 											{#each chromaticScale as note (note)}
@@ -1854,6 +2032,62 @@
 							</div>
 						</div>
 
+						<!-- Tuning Configuration -->
+						<div class="border-t border-border/50 pt-4">
+							<span class="mb-3 block text-sm font-medium text-muted-foreground">Tuning</span>
+							<div class="flex flex-wrap items-end gap-3">
+								<!-- Tuning Preset Selection -->
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70">Preset</span>
+									<Select.Root
+										type="single"
+										value={selectedTuningPreset}
+										onValueChange={(v) => applyTuningPreset(v)}
+									>
+										<Select.Trigger class="w-44" onwheel={scrollTuning}>
+											{tuningPresetNames[selectedTuningPreset] || 'Custom'}
+										</Select.Trigger>
+										<Select.Content class="max-h-64 overflow-y-auto">
+											{#each Object.entries(tuningPresetNames) as [key, name] (key)}
+												<Select.Item value={key}>{name}</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
+								</div>
+
+								<!-- Individual String Tuning -->
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70">Individual Strings (low → high)</span>
+									<div class="flex gap-1">
+										{#each [5, 4, 3, 2, 1, 0] as stringIndex (stringIndex)}
+											<Select.Root
+												type="single"
+												value={strings[stringIndex]}
+												onValueChange={(v) => {
+													strings[stringIndex] = v;
+													strings = [...strings];
+													selectedTuningPreset = 'custom';
+													pushHistory(true);
+												}}
+											>
+												<Select.Trigger
+													class="h-9 w-14 justify-center px-1 [&>svg]:hidden"
+													onwheel={(e) => scrollStringTuning(e, stringIndex)}
+												>
+													<span class="w-full text-center">{getDisplayNote(strings[stringIndex])}</span>
+												</Select.Trigger>
+												<Select.Content class="max-h-64 overflow-y-auto">
+													{#each chromaticScale as note (note)}
+														<Select.Item value={note}>{note}</Select.Item>
+													{/each}
+												</Select.Content>
+											</Select.Root>
+										{/each}
+									</div>
+								</div>
+							</div>
+						</div>
+
 						<!-- Clear All Button -->
 						<div class="border-t border-border/50 pt-4">
 							<Button variant="secondary" onclick={clearAll} class="w-full">Clear All Notes</Button>
@@ -1866,18 +2100,19 @@
 			<div
 				class="relative overflow-x-auto rounded-xl border border-border/50 bg-transparent px-6 pb-6 pt-12"
 			>
-				<!-- Pentatonic shape overlays using SVG -->
-				{#if showShapeBoxes && activeShapes.length > 0}
+				<!-- Pentatonic shape overlays using SVG (only in standard tuning) -->
+				{#if showShapeBoxes && activeShapes.length > 0 && selectedTuningPreset === 'standard'}
 					<svg
 						class="pointer-events-none absolute inset-0 z-10"
 						style="top: 48px; left: 24px; width: calc(100% - 48px); height: 300px;"
 					>
 						{#each activeShapes as shape (shape.name + '-' + shape.startFret)}
 							{#if isShapeVisible(shape) && shape.path}
+								{@const colorIdx = getPentatonicShapeColorIndex(shape.name)}
 								<path
 									d={generateShapePath(shape)}
-									fill={shapeColors[shape.colorIndex]}
-									stroke={shapeBorderColors[shape.colorIndex]}
+									fill={shapeColors[colorIdx]}
+									stroke={shapeBorderColors[colorIdx]}
 									stroke-width="2"
 									stroke-linejoin="round"
 								/>
@@ -1889,6 +2124,7 @@
 					{#each activeShapes as shape (shape.name + '-' + shape.startFret + '-label')}
 						{#if shape.path && isShapeLabelVisible(shape)}
 							{@const labelPos = getShapeLabelPosition(shape)}
+							{@const colorIdx = getPentatonicShapeColorIndex(shape.name)}
 							<div
 								class="pointer-events-none absolute z-20"
 								style="left: {labelPos.x + 24}px; top: {labelPos.y +
@@ -1897,20 +2133,20 @@
 								<span
 									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
 									style="background-color: {shapeColors[
-										shape.colorIndex
+										colorIdx
 									]}; color: {shapeBorderColors[
-										shape.colorIndex
-									]}; border: 1px solid {shapeBorderColors[shape.colorIndex]};"
+										colorIdx
+									]}; border: 1px solid {shapeBorderColors[colorIdx]};"
 								>
-									Shape {shape.name}
+									Shape {getPentatonicShapeDisplayName(shape.name)}
 								</span>
 							</div>
 						{/if}
 					{/each}
 				{/if}
 
-				<!-- 3NPS shape overlays -->
-				{#if show3NPSShapeBoxes && active3NPSShapes.length > 0}
+				<!-- 3NPS shape overlays (only in standard tuning) -->
+				{#if show3NPSShapeBoxes && active3NPSShapes.length > 0 && selectedTuningPreset === 'standard'}
 					<svg
 						class="pointer-events-none absolute inset-0 z-10"
 						style="top: 48px; left: 24px; width: calc(100% - 48px); height: 300px;"
