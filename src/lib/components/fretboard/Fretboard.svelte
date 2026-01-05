@@ -1,5 +1,4 @@
 <script lang="ts">
-	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import {
 		FRET_COUNT,
 		SINGLE_DOT_FRETS,
@@ -31,32 +30,18 @@
 		return isNoteIn3NPSShape(stringIndex, fretIndex, s.active3NPSShapes);
 	}
 
-	// Throttled touch handler state
-	let lastTouchTime = 0;
-	let lastTouchFret = -1;
-	let lastTouchString = -1;
-	const TOUCH_THROTTLE_MS = 16; // ~60fps
+	// Guard to prevent mousedown from firing after touchstart
+	let lastTouchStartTime = 0;
 
-	// Optimized touch handler - throttled with position caching
-	function handleTouchMove(e: TouchEvent) {
-		const now = performance.now();
-		if (now - lastTouchTime < TOUCH_THROTTLE_MS) return;
-		lastTouchTime = now;
+	function handleTouchStart(stringIndex: number, fretIndex: number) {
+		lastTouchStartTime = performance.now();
+		store.startPainting(stringIndex, fretIndex);
+	}
 
-		const touch = e.touches[0];
-		const target = document.elementFromPoint(touch.clientX, touch.clientY);
-		const btn = target?.closest('button[data-fret]') as HTMLElement | null;
-		if (btn) {
-			const si = parseInt(btn.dataset.string || '-1', 10);
-			const fi = parseInt(btn.dataset.fret || '-1', 10);
-			// Skip if same position as last touch
-			if (si === lastTouchString && fi === lastTouchFret) return;
-			if (si >= 0 && fi >= 0) {
-				lastTouchString = si;
-				lastTouchFret = fi;
-				store.handlePaintOver(si, fi);
-			}
-		}
+	function handleMouseDown(stringIndex: number, fretIndex: number) {
+		// Skip if this mousedown was triggered by a recent touch
+		if (performance.now() - lastTouchStartTime < 500) return;
+		store.startPainting(stringIndex, fretIndex);
 	}
 
 	// Generate accessible label for a fret button
@@ -98,66 +83,51 @@
 
 		<!-- Strings -->
 		{#each s.strings as stringName, stringIndex (stringIndex)}
-			<ContextMenu.Root>
-				<ContextMenu.Trigger>
-					<div class="group relative flex items-center">
-						<div class="w-10 flex-shrink-0 text-center text-sm font-semibold text-muted-foreground">
-							{stringName}
-						</div>
+			<div class="group relative flex items-center">
+				<div class="w-10 flex-shrink-0 text-center text-sm font-semibold text-muted-foreground">
+					{stringName}
+				</div>
 
-						<!-- String line -->
-						<div
-							class="pointer-events-none absolute left-10 right-0 bg-gradient-to-r from-zinc-400 via-zinc-300 to-zinc-400"
-							style="height: {STRING_THICKNESS_BASE + stringIndex * STRING_THICKNESS_INCREMENT}px;"
-						></div>
+				<!-- String line -->
+				<div
+					class="pointer-events-none absolute left-10 right-0 bg-gradient-to-r from-zinc-400 via-zinc-300 to-zinc-400"
+					style="height: {STRING_THICKNESS_BASE + stringIndex * STRING_THICKNESS_INCREMENT}px;"
+				></div>
 
-						{#each { length: FRET_COUNT + 1 }, fretIndex (fretIndex)}
-							<div
-								class="relative z-20 flex h-10 flex-shrink-0 items-center justify-center {fretIndex === 0
-									? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30'
-									: 'w-14 border-r-2 border-r-zinc-600'}"
-							>
-								<!-- Circular hit area for painting -->
-								<button
-									class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
-									data-string={stringIndex}
-									data-fret={fretIndex}
-									aria-label={getAriaLabel(stringIndex, fretIndex)}
-									aria-pressed={store.isSelected(stringIndex, fretIndex)}
-									onmousedown={() => store.startPainting(stringIndex, fretIndex)}
-									onmouseenter={() => store.handlePaintOver(stringIndex, fretIndex)}
-									ontouchstart={() => store.startPainting(stringIndex, fretIndex)}
-									ontouchmove={handleTouchMove}
+				{#each { length: FRET_COUNT + 1 }, fretIndex (fretIndex)}
+					<div
+						class="relative z-20 flex h-10 flex-shrink-0 items-center justify-center {fretIndex === 0
+							? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30'
+							: 'w-14 border-r-2 border-r-zinc-600'}"
+					>
+						<!-- Circular hit area for painting -->
+						<button
+							class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
+							data-string={stringIndex}
+							data-fret={fretIndex}
+							aria-label={getAriaLabel(stringIndex, fretIndex)}
+							aria-pressed={store.isSelected(stringIndex, fretIndex)}
+							onmousedown={() => handleMouseDown(stringIndex, fretIndex)}
+							onmouseenter={() => store.handlePaintOver(stringIndex, fretIndex)}
+							ontouchstart={() => handleTouchStart(stringIndex, fretIndex)}
+						>
+							{#if store.isSelected(stringIndex, fretIndex)}
+								{@const noteColor = store.getNoteColor(stringIndex, fretIndex)}
+								{@const inShape = checkNoteIn3NPSShape(stringIndex, fretIndex)}
+								{@const borderColor = inShape ? getComplementaryColor(noteColor) : 'white'}
+								<div
+									class="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
+									style="background-color: {noteColor}bf; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
 								>
-									{#if store.isSelected(stringIndex, fretIndex)}
-										{@const noteColor = store.getNoteColor(stringIndex, fretIndex)}
-										{@const inShape = checkNoteIn3NPSShape(stringIndex, fretIndex)}
-										{@const borderColor = inShape ? getComplementaryColor(noteColor) : 'white'}
-										<div
-											class="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
-											style="background-color: {noteColor}bf; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
-										>
-											<span class="text-[10px] font-bold text-white">
-												{getNoteDisplayText(stringIndex, fretIndex)}
-											</span>
-										</div>
-									{/if}
-								</button>
-							</div>
-						{/each}
+									<span class="text-[10px] font-bold text-white">
+										{getNoteDisplayText(stringIndex, fretIndex)}
+									</span>
+								</div>
+							{/if}
+						</button>
 					</div>
-				</ContextMenu.Trigger>
-				<ContextMenu.Content class="w-48">
-					<ContextMenu.Item onclick={() => store.selectString(stringIndex)}>
-						Select all on {stringName} string
-					</ContextMenu.Item>
-					<ContextMenu.Item onclick={() => store.clearString(stringIndex)}>
-						Clear {stringName} string
-					</ContextMenu.Item>
-					<ContextMenu.Separator />
-					<ContextMenu.Item onclick={store.clearAll}>Clear all</ContextMenu.Item>
-				</ContextMenu.Content>
-			</ContextMenu.Root>
+				{/each}
+			</div>
 		{/each}
 
 		<!-- Fret markers -->
