@@ -126,7 +126,7 @@
 									class="flex h-7 w-7 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
 									style="background-color: {noteColor}{isRoot ? '' : 'bf'}; box-shadow: 0 4px 6px -1px {noteColor}40; border-color: {borderColor};"
 								>
-									<span class="text-[10px] font-bold text-white">
+									<span class="select-none text-[10px] font-bold text-white">
 										{getNoteDisplayText(stringIndex, fretIndex)}
 									</span>
 								</div>
