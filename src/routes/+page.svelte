@@ -40,6 +40,11 @@
 	let selectedKey = $state('C');
 	let isMajor = $state(true);
 	let selectedScale = $state('pentatonic');
+	let lastAppliedScale: string | null = $state(null);
+	let scaleToRemove = $state('ionian');
+
+	// 3NPS shape selection (1-7, or null for none)
+	let selected3NPSShape: number | null = $state(null);
 
 	// Display settings
 	let showIntervals = $state(false);
@@ -62,10 +67,55 @@
 	}
 
 	// Scale intervals (semitones from root)
+	// Overlays on pentatonic: minor pent = [0, 3, 5, 7, 10], major pent = [0, 2, 4, 7, 9]
+	// Minor-relative modes: Dorian, Aeolian, Phrygian, Locrian (add to minor pentatonic)
+	// Major-relative modes: Ionian, Lydian, Mixolydian (add to major pentatonic)
 	const scaleIntervals: Record<string, { major: number[]; minor: number[] }> = {
 		pentatonic: {
 			major: [0, 2, 4, 7, 9], // 1, 2, 3, 5, 6
 			minor: [0, 3, 5, 7, 10] // 1, b3, 4, 5, b7
+		},
+		blues: {
+			major: [0, 2, 3, 4, 7, 9], // Major pentatonic + b3 (blue note)
+			minor: [0, 3, 5, 6, 7, 10] // Minor pentatonic + b5 (blue note)
+		},
+		// Major-relative modes (overlay on major pentatonic)
+		ionian: {
+			major: [0, 2, 4, 5, 7, 9, 11], // Major pentatonic + 4 + 7
+			minor: [0, 2, 3, 5, 7, 8, 10] // Aeolian (parallel minor)
+		},
+		lydian: {
+			major: [0, 2, 4, 6, 7, 9, 11], // Major pentatonic + #4 + 7
+			minor: [0, 2, 3, 5, 6, 7, 9, 10] // Dorian #4 (parallel minor feel)
+		},
+		mixolydian: {
+			major: [0, 2, 4, 5, 7, 9, 10], // Major pentatonic + 4 + b7
+			minor: [0, 2, 3, 5, 7, 9, 10] // Dorian (parallel minor)
+		},
+		// Minor-relative modes (overlay on minor pentatonic)
+		dorian: {
+			major: [0, 2, 4, 5, 7, 9, 11], // Ionian (parallel major)
+			minor: [0, 2, 3, 5, 7, 9, 10] // Minor pentatonic + 2 + 6
+		},
+		aeolian: {
+			major: [0, 2, 4, 5, 7, 9, 11], // Ionian (parallel major)
+			minor: [0, 2, 3, 5, 7, 8, 10] // Minor pentatonic + 2 + b6
+		},
+		phrygian: {
+			major: [0, 1, 4, 5, 7, 8, 10], // Phrygian dominant
+			minor: [0, 1, 3, 5, 7, 8, 10] // Minor pentatonic + b2 + b6
+		},
+		locrian: {
+			major: [0, 1, 3, 5, 6, 8, 10], // Standard Locrian
+			minor: [0, 1, 3, 5, 6, 7, 8, 10] // Minor pentatonic + b2 + b5 + b6
+		},
+		'dorian-#4': {
+			major: [0, 2, 4, 6, 7, 9, 11], // Lydian
+			minor: [0, 2, 3, 5, 6, 7, 9, 10] // Minor pentatonic + 2 + #4 + 6
+		},
+		'melodic-minor': {
+			major: [0, 2, 4, 5, 7, 9, 11], // Ionian
+			minor: [0, 2, 3, 5, 7, 9, 10, 11] // Minor pentatonic + 2 + 6 + 7
 		},
 		diatonic: {
 			major: [0, 2, 4, 5, 7, 9, 11], // Ionian
@@ -224,6 +274,7 @@
 	};
 
 	// Colors for shape boxes
+	// Pentatonic shape colors
 	const shapeColors = [
 		'rgba(168, 85, 247, 0.15)', // Purple
 		'rgba(59, 130, 246, 0.15)', // Blue
@@ -244,6 +295,27 @@
 		'rgba(236, 72, 153, 0.6)'
 	];
 
+	// 3NPS shape colors (transparent white for best visibility)
+	const threeNPSShapeColors = [
+		'rgba(255, 255, 255, 0.15)',
+		'rgba(255, 255, 255, 0.15)',
+		'rgba(255, 255, 255, 0.15)',
+		'rgba(255, 255, 255, 0.15)',
+		'rgba(255, 255, 255, 0.15)',
+		'rgba(255, 255, 255, 0.15)',
+		'rgba(255, 255, 255, 0.15)'
+	];
+
+	const threeNPSBorderColors = [
+		'rgba(255, 255, 255, 0.9)',
+		'rgba(255, 255, 255, 0.9)',
+		'rgba(255, 255, 255, 0.9)',
+		'rgba(255, 255, 255, 0.9)',
+		'rgba(255, 255, 255, 0.9)',
+		'rgba(255, 255, 255, 0.9)',
+		'rgba(255, 255, 255, 0.9)'
+	];
+
 	// Active shapes state
 	interface ActiveShape {
 		name: string;
@@ -253,7 +325,9 @@
 		endFret?: number; // For rectangle-based shapes
 	}
 	let activeShapes: ActiveShape[] = $state([]);
+	let active3NPSShapes: ActiveShape[] = $state([]);
 	let showShapeBoxes = $state(true);
+	let show3NPSShapeBoxes = $state(true);
 
 	function getScaleNotes(key: string, major: boolean, scale: string): Set<number> {
 		const keyIndex = chromaticScale.indexOf(key);
@@ -270,55 +344,134 @@
 		return fret;
 	}
 
-	function calculateShapes(key: string, scale: string): ActiveShape[] {
+	// Always calculate pentatonic shapes (can overlay on any scale)
+	function calculatePentatonicShapes(key: string): ActiveShape[] {
 		const rootFret = getRootFret(key);
 		const result: ActiveShape[] = [];
 
-		if (scale === 'pentatonic') {
-			// For major pentatonic, use relative minor position (3 semitones down)
-			// This aligns shapes correctly since C major pent = A minor pent (same notes)
-			const effectiveRootFret = isMajor ? (rootFret - 3 + 12) % 12 : rootFret;
+		// For major, use relative minor position (3 semitones down)
+		// This aligns shapes correctly since C major pent = A minor pent (same notes)
+		const effectiveRootFret = isMajor ? (rootFret - 3 + 12) % 12 : rootFret;
 
-			// Use path-based shapes for pentatonic
-			pentatonicShapes.forEach((shape, index) => {
-				for (let octave = -1; octave <= 2; octave++) {
-					const startFret = effectiveRootFret + shape.startOffset + octave * 12;
-					const maxFret = startFret + Math.max(...shape.path.map((p) => p[0]));
-					const minFret = startFret + Math.min(...shape.path.map((p) => p[0]));
+		// Use path-based shapes for pentatonic
+		pentatonicShapes.forEach((shape, index) => {
+			for (let octave = -1; octave <= 2; octave++) {
+				const startFret = effectiveRootFret + shape.startOffset + octave * 12;
+				const maxFret = startFret + Math.max(...shape.path.map((p) => p[0]));
+				const minFret = startFret + Math.min(...shape.path.map((p) => p[0]));
 
-					// Only add if the shape is visible on the fretboard
-					if (maxFret >= 0 && minFret <= fretCount) {
-						result.push({
-							name: shape.name,
-							startFret: startFret,
-							colorIndex: index % shapeBorderColors.length,
-							path: shape.path
-						});
-					}
+				// Only add if the shape is visible on the fretboard
+				if (maxFret >= 0 && minFret <= fretCount) {
+					result.push({
+						name: shape.name,
+						startFret: startFret,
+						colorIndex: index % shapeBorderColors.length,
+						path: shape.path
+					});
 				}
-			});
-		} else {
-			// Use rectangle-based shapes for diatonic and 3nps
-			const shapes = scaleShapes[scale];
-			shapes.forEach((shape, index) => {
-				for (let octave = -1; octave <= 2; octave++) {
-					const startFret = rootFret + shape.startOffset + octave * 12;
-					const endFret = startFret + shape.span;
-
-					if (endFret >= 0 && startFret <= fretCount) {
-						result.push({
-							name: shape.name,
-							startFret: Math.max(0, startFret),
-							endFret: Math.min(fretCount, endFret),
-							colorIndex: index % shapeBorderColors.length
-						});
-					}
-				}
-			});
-		}
+			}
+		});
 
 		// Sort by start fret for consistent rendering
 		result.sort((a, b) => a.startFret - b.startFret);
+
+		return result;
+	}
+
+	// Calculate all instances of a 3NPS shape across the fretboard
+	function calculate3NPSShapes(key: string, shapeNumber: number): ActiveShape[] {
+		if (shapeNumber < 1 || shapeNumber > 7) return [];
+
+		const keyIndex = chromaticScale.indexOf(key);
+		const intervals = scaleIntervals['3nps'][isMajor ? 'major' : 'minor'];
+		const startDegree = shapeNumber - 1;
+
+		// First, calculate the base shape pattern (relative fret positions)
+		const stringNotes: { fret: number; stringIndex: number }[][] = [];
+
+		for (let stringIndex = 0; stringIndex < 6; stringIndex++) {
+			const stringBase = stringBaseNotes[stringIndex];
+			const notesOnString: { fret: number; stringIndex: number }[] = [];
+			const stringOffset = (5 - stringIndex) * 3;
+
+			for (let noteIdx = 0; noteIdx < 3; noteIdx++) {
+				const degree = (startDegree + stringOffset + noteIdx) % 7;
+				const semitones = intervals[degree];
+				const noteIndex = (keyIndex + semitones) % 12;
+				const baseFret = (noteIndex - stringBase + 12) % 12;
+				notesOnString.push({ fret: baseFret, stringIndex });
+			}
+
+			stringNotes.push(notesOnString);
+		}
+
+		// Normalize fret positions for the base shape
+		let referenceFret = stringNotes[5]?.[0]?.fret || 0;
+		const adjustedNotes: { fret: number; stringIndex: number }[][] = [];
+
+		for (let stringIndex = 5; stringIndex >= 0; stringIndex--) {
+			const notes = stringNotes[stringIndex];
+			const adjusted: { fret: number; stringIndex: number }[] = [];
+
+			for (const note of notes) {
+				let fret = note.fret;
+				while (fret < referenceFret - 3) fret += 12;
+				while (fret > referenceFret + 8) fret -= 12;
+				adjusted.push({ fret, stringIndex: note.stringIndex });
+			}
+
+			adjusted.sort((a, b) => a.fret - b.fret);
+			adjustedNotes[stringIndex] = adjusted;
+
+			if (adjusted.length > 0) {
+				referenceFret = adjusted[Math.floor(adjusted.length / 2)].fret;
+			}
+		}
+
+		// Build the path pattern
+		const allFrets = adjustedNotes.flat().map((n) => n.fret);
+		const minFret = Math.min(...allFrets);
+		const maxFret = Math.max(...allFrets);
+
+		const simplePath: [number, number][] = [];
+
+		// Right side going up (low E to high E)
+		for (let stringIndex = 5; stringIndex >= 0; stringIndex--) {
+			const notes = adjustedNotes[stringIndex];
+			if (notes && notes.length > 0) {
+				const rightmost = notes[notes.length - 1];
+				simplePath.push([rightmost.fret - minFret, stringIndex]);
+			}
+		}
+
+		// Left side going down (high E to low E)
+		for (let stringIndex = 0; stringIndex <= 5; stringIndex++) {
+			const notes = adjustedNotes[stringIndex];
+			if (notes && notes.length > 0) {
+				const leftmost = notes[0];
+				if (notes.length > 1 || stringIndex === 0) {
+					simplePath.push([leftmost.fret - minFret, stringIndex]);
+				}
+			}
+		}
+
+		// Now create instances at every octave across the fretboard
+		const result: ActiveShape[] = [];
+
+		for (let octave = -1; octave <= 2; octave++) {
+			const startFret = minFret + octave * 12;
+			const endFret = startFret + (maxFret - minFret);
+
+			// Only add if the shape is at least partially visible
+			if (endFret >= 0 && startFret <= fretCount) {
+				result.push({
+					name: String(shapeNumber),
+					startFret: startFret,
+					colorIndex: (shapeNumber - 1) % shapeBorderColors.length,
+					path: simplePath
+				});
+			}
+		}
 
 		return result;
 	}
@@ -431,21 +584,76 @@
 	function applyScale() {
 		const scaleNotes = getScaleNotes(selectedKey, isMajor, selectedScale);
 
-		// Clear existing notes
-		selectedFrets = {};
+		// Check if we should layer on top of pentatonic
+		const shouldLayer = lastAppliedScale === 'pentatonic' && selectedScale !== 'pentatonic';
 
-		// Calculate and store active shapes
-		activeShapes = calculateShapes(selectedKey, selectedScale);
+		// Clear existing notes only if not layering
+		if (!shouldLayer) {
+			selectedFrets = {};
+		}
+
+		// Always calculate pentatonic shapes (can overlay on any scale)
+		activeShapes = calculatePentatonicShapes(selectedKey);
+
+		// Calculate 3NPS shapes if one is selected (all octaves)
+		if (selected3NPSShape !== null) {
+			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+		} else {
+			active3NPSShapes = [];
+		}
 
 		// Apply scale to all frets
 		for (let stringIndex = 0; stringIndex < strings.length; stringIndex++) {
 			for (let fretIndex = 0; fretIndex <= fretCount; fretIndex++) {
 				const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
 				if (scaleNotes.has(noteIndex)) {
-					selectedFrets[`${stringIndex}-${fretIndex}`] = selectedColor;
+					const key = `${stringIndex}-${fretIndex}`;
+					// Only add if not already selected (preserves existing colors when layering)
+					if (!selectedFrets[key]) {
+						selectedFrets[key] = selectedColor;
+					}
 				}
 			}
 		}
+
+		// Track the last applied scale (use 'pentatonic' if layering to allow further layering)
+		lastAppliedScale = shouldLayer ? 'pentatonic' : selectedScale;
+	}
+
+	// Recalculate 3NPS shapes when selection changes
+	function update3NPSShape() {
+		if (selected3NPSShape !== null) {
+			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+		} else {
+			active3NPSShapes = [];
+		}
+	}
+
+	// Remove notes that are specific to a scale (extra notes compared to pentatonic)
+	function removeScaleNotes() {
+		const pentatonicNotes = getScaleNotes(selectedKey, isMajor, 'pentatonic');
+		const scaleNotes = getScaleNotes(selectedKey, isMajor, scaleToRemove);
+
+		// Find notes that are in the scale but NOT in pentatonic (the "extra" notes)
+		const extraNotes = new Set<number>();
+		for (const note of scaleNotes) {
+			if (!pentatonicNotes.has(note)) {
+				extraNotes.add(note);
+			}
+		}
+
+		// Remove frets that match these extra notes
+		for (let stringIndex = 0; stringIndex < strings.length; stringIndex++) {
+			for (let fretIndex = 0; fretIndex <= fretCount; fretIndex++) {
+				const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
+				if (extraNotes.has(noteIndex)) {
+					delete selectedFrets[`${stringIndex}-${fretIndex}`];
+				}
+			}
+		}
+
+		// Trigger reactivity
+		selectedFrets = { ...selectedFrets };
 	}
 
 	// Color options - predefined colors that match the dark theme
@@ -478,9 +686,98 @@
 		return selectedFrets[`${stringIndex}-${fretIndex}`] || selectedColor;
 	}
 
+	// Calculate complementary color for high contrast borders
+	function getComplementaryColor(hexColor: string): string {
+		// Remove # if present
+		const hex = hexColor.replace('#', '');
+
+		// Parse RGB
+		const r = parseInt(hex.substring(0, 2), 16);
+		const g = parseInt(hex.substring(2, 4), 16);
+		const b = parseInt(hex.substring(4, 6), 16);
+
+		// Convert to HSL
+		const rNorm = r / 255;
+		const gNorm = g / 255;
+		const bNorm = b / 255;
+
+		const max = Math.max(rNorm, gNorm, bNorm);
+		const min = Math.min(rNorm, gNorm, bNorm);
+		const l = (max + min) / 2;
+
+		let h = 0;
+		let s = 0;
+
+		if (max !== min) {
+			const d = max - min;
+			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+			switch (max) {
+				case rNorm:
+					h = ((gNorm - bNorm) / d + (gNorm < bNorm ? 6 : 0)) / 6;
+					break;
+				case gNorm:
+					h = ((bNorm - rNorm) / d + 2) / 6;
+					break;
+				case bNorm:
+					h = ((rNorm - gNorm) / d + 4) / 6;
+					break;
+			}
+		}
+
+		// Shift hue by 180 degrees (0.5 in normalized form)
+		h = (h + 0.5) % 1;
+
+		// Increase saturation for more vibrant complementary color
+		s = Math.min(1, s * 1.2);
+
+		// Convert back to RGB
+		function hue2rgb(p: number, q: number, t: number) {
+			if (t < 0) t += 1;
+			if (t > 1) t -= 1;
+			if (t < 1 / 6) return p + (q - p) * 6 * t;
+			if (t < 1 / 2) return q;
+			if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+			return p;
+		}
+
+		const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+		const p = 2 * l - q;
+
+		const rOut = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
+		const gOut = Math.round(hue2rgb(p, q, h) * 255);
+		const bOut = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
+
+		return `rgb(${rOut}, ${gOut}, ${bOut})`;
+	}
+
+	// Check if a note is within any active 3NPS shape
+	function isNoteIn3NPSShape(stringIndex: number, fretIndex: number): boolean {
+		if (!show3NPSShapeBoxes || active3NPSShapes.length === 0) return false;
+
+		for (const shape of active3NPSShapes) {
+			if (!shape.path) continue;
+
+			// Get the fret range for this string from the shape path
+			const stringPoints = shape.path.filter(([_, strIdx]) => strIdx === stringIndex);
+			if (stringPoints.length === 0) continue;
+
+			const frets = stringPoints.map(([fretOffset, _]) => shape.startFret + fretOffset);
+			const minFret = Math.min(...frets);
+			const maxFret = Math.max(...frets);
+
+			if (fretIndex >= minFret && fretIndex <= maxFret) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	function clearAll() {
 		selectedFrets = {};
 		activeShapes = [];
+		lastAppliedScale = null;
 	}
 
 	function clearString(stringIndex: number) {
@@ -658,15 +955,31 @@
 
 								<!-- Scale Type Selection -->
 								<div class="flex flex-col gap-1">
-									<span class="text-xs text-muted-foreground/70">Shape</span>
+									<span class="text-xs text-muted-foreground/70">Scale</span>
 									<Select.Root type="single" bind:value={selectedScale}>
-										<Select.Trigger class="w-32">
-											{selectedScale === '3nps'
-												? '3 Notes/String'
-												: selectedScale.charAt(0).toUpperCase() + selectedScale.slice(1)}
+										<Select.Trigger class="w-36">
+											{#if selectedScale === '3nps'}
+												3 Notes/String
+											{:else if selectedScale === 'dorian-#4'}
+												Dorian #4
+											{:else if selectedScale === 'melodic-minor'}
+												Melodic Minor
+											{:else}
+												{selectedScale.charAt(0).toUpperCase() + selectedScale.slice(1)}
+											{/if}
 										</Select.Trigger>
 										<Select.Content>
 											<Select.Item value="pentatonic">Pentatonic</Select.Item>
+											<Select.Item value="blues">Blues</Select.Item>
+											<Select.Item value="ionian">Ionian</Select.Item>
+											<Select.Item value="dorian">Dorian</Select.Item>
+											<Select.Item value="phrygian">Phrygian</Select.Item>
+											<Select.Item value="lydian">Lydian</Select.Item>
+											<Select.Item value="mixolydian">Mixolydian</Select.Item>
+											<Select.Item value="aeolian">Aeolian</Select.Item>
+											<Select.Item value="locrian">Locrian</Select.Item>
+											<Select.Item value="dorian-#4">Dorian #4</Select.Item>
+											<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
 											<Select.Item value="diatonic">Diatonic</Select.Item>
 											<Select.Item value="3nps">3 Notes/String</Select.Item>
 										</Select.Content>
@@ -674,14 +987,86 @@
 								</div>
 
 								<!-- Apply Button -->
-								<Button onclick={applyScale} variant="secondary" class="h-9">Apply Scale</Button>
-							</div>
-							{#if activeShapes.length > 0}
-								<div class="mt-3 flex items-center gap-2">
-									<Switch bind:checked={showShapeBoxes} />
-									<span class="text-sm text-muted-foreground">Show shape boxes</span>
+								<Button onclick={applyScale} variant="secondary" class="h-9">Apply</Button>
+
+								<!-- Remove Scale Notes -->
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70">Remove</span>
+									<div class="flex gap-1">
+										<Select.Root type="single" bind:value={scaleToRemove}>
+											<Select.Trigger class="h-9 w-28">
+												{#if scaleToRemove === '3nps'}
+													3NPS
+												{:else if scaleToRemove === 'dorian-#4'}
+													Dorian #4
+												{:else if scaleToRemove === 'melodic-minor'}
+													Mel. Minor
+												{:else}
+													{scaleToRemove.charAt(0).toUpperCase() + scaleToRemove.slice(1)}
+												{/if}
+											</Select.Trigger>
+											<Select.Content>
+												<Select.Item value="blues">Blues</Select.Item>
+												<Select.Item value="ionian">Ionian</Select.Item>
+												<Select.Item value="dorian">Dorian</Select.Item>
+												<Select.Item value="phrygian">Phrygian</Select.Item>
+												<Select.Item value="lydian">Lydian</Select.Item>
+												<Select.Item value="mixolydian">Mixolydian</Select.Item>
+												<Select.Item value="aeolian">Aeolian</Select.Item>
+												<Select.Item value="locrian">Locrian</Select.Item>
+												<Select.Item value="dorian-#4">Dorian #4</Select.Item>
+												<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
+											</Select.Content>
+										</Select.Root>
+										<Button onclick={removeScaleNotes} variant="destructive" class="h-9 px-2">✕</Button>
+									</div>
 								</div>
-							{/if}
+
+								<!-- Show pentatonic shapes toggle (works on any scale) -->
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70">Pentatonic</span>
+									<div class="flex h-9 items-center">
+										<Switch bind:checked={showShapeBoxes} />
+									</div>
+								</div>
+
+								<!-- Show 3NPS shapes toggle (works on any scale) -->
+								<div class="flex flex-col gap-1">
+									<span class="text-xs text-muted-foreground/70">3NPS</span>
+									<div class="flex h-9 items-center">
+										<Switch bind:checked={show3NPSShapeBoxes} />
+									</div>
+								</div>
+
+								<!-- 3NPS Shape Selector (available for all scales) -->
+								{#if show3NPSShapeBoxes}
+									<div class="flex flex-col gap-1">
+										<span class="text-xs text-muted-foreground/70">3NPS Shape</span>
+										<Select.Root
+											type="single"
+											value={selected3NPSShape?.toString() ?? 'none'}
+											onValueChange={(v) => {
+												selected3NPSShape = v === 'none' ? null : parseInt(v);
+												update3NPSShape();
+											}}
+										>
+											<Select.Trigger class="w-28">
+												{selected3NPSShape === null ? 'None' : `Shape ${selected3NPSShape}`}
+											</Select.Trigger>
+											<Select.Content>
+												<Select.Item value="none">None</Select.Item>
+												<Select.Item value="1">Shape 1</Select.Item>
+												<Select.Item value="2">Shape 2</Select.Item>
+												<Select.Item value="3">Shape 3</Select.Item>
+												<Select.Item value="4">Shape 4</Select.Item>
+												<Select.Item value="5">Shape 5</Select.Item>
+												<Select.Item value="6">Shape 6</Select.Item>
+												<Select.Item value="7">Shape 7</Select.Item>
+											</Select.Content>
+										</Select.Root>
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 				</Collapsible.Content>
@@ -689,45 +1074,28 @@
 
 			<!-- Fretboard -->
 			<div class="relative overflow-x-auto rounded-xl border border-border/50 bg-transparent p-6">
-				<!-- Shape overlays using SVG -->
+				<!-- Pentatonic shape overlays using SVG -->
 				{#if showShapeBoxes && activeShapes.length > 0}
-					<!-- SVG overlay for shape paths -->
 					<svg
 						class="pointer-events-none absolute inset-0 z-10"
 						style="top: 24px; left: 24px; width: calc(100% - 48px); height: 300px;"
 					>
 						{#each activeShapes as shape (shape.name + '-' + shape.startFret)}
-							{#if isShapeVisible(shape)}
-								{#if shape.path}
-									<!-- Pentatonic diagonal shape -->
-									<path
-										d={generateShapePath(shape)}
-										fill={shapeColors[shape.colorIndex]}
-										stroke={shapeBorderColors[shape.colorIndex]}
-										stroke-width="2"
-										stroke-linejoin="round"
-									/>
-								{:else if shape.endFret !== undefined}
-									<!-- Rectangle shape for diatonic/3nps -->
-									{@const pos = getShapePosition(shape.startFret, shape.endFret)}
-									<rect
-										x={pos.left}
-										y="44"
-										width={pos.width}
-										height="240"
-										fill={shapeColors[shape.colorIndex]}
-										stroke={shapeBorderColors[shape.colorIndex]}
-										stroke-width="2"
-										rx="4"
-									/>
-								{/if}
+							{#if isShapeVisible(shape) && shape.path}
+								<path
+									d={generateShapePath(shape)}
+									fill={shapeColors[shape.colorIndex]}
+									stroke={shapeBorderColors[shape.colorIndex]}
+									stroke-width="2"
+									stroke-linejoin="round"
+								/>
 							{/if}
 						{/each}
 					</svg>
 
-					<!-- Shape labels (only show if center is within visible fretboard) -->
+					<!-- Pentatonic shape labels -->
 					{#each activeShapes as shape (shape.name + '-' + shape.startFret + '-label')}
-						{#if isShapeLabelVisible(shape)}
+						{#if shape.path && isShapeLabelVisible(shape)}
 							{@const labelPos = getShapeLabelPosition(shape)}
 							<div
 								class="pointer-events-none absolute z-20"
@@ -740,6 +1108,46 @@
 									]}; border: 1px solid {shapeBorderColors[shape.colorIndex]};"
 								>
 									Shape {shape.name}
+								</span>
+							</div>
+						{/if}
+					{/each}
+				{/if}
+
+				<!-- 3NPS shape overlays -->
+				{#if show3NPSShapeBoxes && active3NPSShapes.length > 0}
+					<svg
+						class="pointer-events-none absolute inset-0 z-10"
+						style="top: 24px; left: 24px; width: calc(100% - 48px); height: 300px;"
+					>
+						{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret)}
+							{#if isShapeVisible(shape) && shape.path}
+								<path
+									d={generateShapePath(shape)}
+									fill={threeNPSShapeColors[shape.colorIndex]}
+									stroke={threeNPSBorderColors[shape.colorIndex]}
+									stroke-width="2"
+									stroke-linejoin="round"
+								/>
+							{/if}
+						{/each}
+					</svg>
+
+					<!-- 3NPS shape labels -->
+					{#each active3NPSShapes as shape (shape.name + '-3nps-' + shape.startFret + '-label')}
+						{#if shape.path && isShapeLabelVisible(shape)}
+							{@const labelPos = getShapeLabelPosition(shape)}
+							<div
+								class="pointer-events-none absolute z-20"
+								style="left: {labelPos.x + 24}px; top: {labelPos.y + 24}px; transform: translateX(-50%);"
+							>
+								<span
+									class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
+									style="background-color: {threeNPSShapeColors[shape.colorIndex]}; color: {threeNPSBorderColors[
+										shape.colorIndex
+									]}; border: 1px solid {threeNPSBorderColors[shape.colorIndex]};"
+								>
+									3NPS {shape.name}
 								</span>
 							</div>
 						{/if}
@@ -788,9 +1196,11 @@
 										>
 											{#if isSelected(stringIndex, fretIndex)}
 												{@const noteColor = getNoteColor(stringIndex, fretIndex)}
+												{@const inShape = isNoteIn3NPSShape(stringIndex, fretIndex)}
+												{@const borderColor = inShape ? getComplementaryColor(noteColor) : 'white'}
 												<div
-													class="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white shadow-lg transition-transform hover:scale-110"
-													style="background-color: {noteColor}bf; box-shadow: 0 10px 15px -3px {noteColor}80;"
+													class="flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-lg transition-transform hover:scale-110"
+													style="background-color: {noteColor}bf; box-shadow: 0 10px 15px -3px {noteColor}80; border-color: {borderColor};"
 												>
 													<span class="text-[10px] font-bold text-white drop-shadow-md"
 														>{getNoteDisplay(stringIndex, fretIndex)}</span
