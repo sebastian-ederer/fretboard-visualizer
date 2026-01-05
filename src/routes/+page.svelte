@@ -5,8 +5,10 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Redo2 from '@lucide/svelte/icons/redo-2';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 
@@ -60,6 +62,42 @@
 	// localStorage keys
 	const STORAGE_KEY = 'fretboard-visualizer-state';
 	const PRESETS_KEY = 'fretboard-visualizer-presets';
+
+	// sessionStorage key for undo/redo history
+	const HISTORY_KEY = 'fretboard-visualizer-history';
+
+	// History configuration
+	// Best practice: 50-100 entries is typical for undo history
+	// Each state is ~1-2KB, so 50 entries = ~50-100KB, well within sessionStorage 5MB limit
+	const MAX_HISTORY_SIZE = 50;
+
+	// History state type (same structure as Preset for consistency)
+	interface HistoryState {
+		selectedFrets: Record<string, string>;
+		selectedKey: string;
+		isMajor: boolean;
+		selectedScale: string;
+		selectedColor: string;
+		customColor: string;
+		showShapeBoxes: boolean;
+		show3NPSShapeBoxes: boolean;
+		selected3NPSShape: number;
+		showIntervals: boolean;
+		eraseSelectedColorOnly: boolean;
+		lastAppliedScale: string | null;
+		scaleToRemove: string;
+	}
+
+	// History stacks for undo/redo
+	let historyStack: HistoryState[] = $state([]);
+	let redoStack: HistoryState[] = $state([]);
+
+	// Flag to prevent history saves during undo/redo operations
+	let isUndoRedoAction = $state(false);
+
+	// Debounce timer for rapid changes
+	let historyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	const HISTORY_DEBOUNCE_MS = 300;
 
 	// Preset management
 	interface Preset {
@@ -167,6 +205,189 @@
 		selectedPresetName = presetNames[newIdx];
 	}
 
+	// ============================================
+	// HISTORY MANAGEMENT (Undo/Redo)
+	// ============================================
+
+	// Capture current state as a snapshot
+	function captureState(): HistoryState {
+		return {
+			selectedFrets: { ...selectedFrets },
+			selectedKey,
+			isMajor,
+			selectedScale,
+			selectedColor,
+			customColor,
+			showShapeBoxes,
+			show3NPSShapeBoxes,
+			selected3NPSShape,
+			showIntervals,
+			eraseSelectedColorOnly,
+			lastAppliedScale,
+			scaleToRemove
+		};
+	}
+
+	// Save history to sessionStorage
+	function saveHistoryToSession() {
+		if (!browser) return;
+		try {
+			sessionStorage.setItem(
+				HISTORY_KEY,
+				JSON.stringify({
+					history: historyStack,
+					redo: redoStack
+				})
+			);
+		} catch (e) {
+			// If sessionStorage is full, remove oldest entries
+			console.warn('sessionStorage full, trimming history');
+			historyStack = historyStack.slice(-Math.floor(MAX_HISTORY_SIZE / 2));
+			redoStack = [];
+			try {
+				sessionStorage.setItem(
+					HISTORY_KEY,
+					JSON.stringify({
+						history: historyStack,
+						redo: redoStack
+					})
+				);
+			} catch {
+				console.error('Failed to save history even after trimming');
+			}
+		}
+	}
+
+	// Push current state to history (with debouncing for rapid changes)
+	function pushHistory(immediate = false) {
+		if (isUndoRedoAction || !isLoaded) return;
+
+		if (historyDebounceTimer) {
+			clearTimeout(historyDebounceTimer);
+		}
+
+		const saveState = () => {
+			const currentState = captureState();
+
+			// Don't save if state hasn't changed from last entry
+			if (historyStack.length > 0) {
+				const lastState = historyStack[historyStack.length - 1];
+				if (JSON.stringify(currentState) === JSON.stringify(lastState)) {
+					return;
+				}
+			}
+
+			// Add to history, respecting max size
+			historyStack = [...historyStack, currentState].slice(-MAX_HISTORY_SIZE);
+
+			// Clear redo stack when new action is performed
+			redoStack = [];
+
+			saveHistoryToSession();
+		};
+
+		if (immediate) {
+			saveState();
+		} else {
+			historyDebounceTimer = setTimeout(saveState, HISTORY_DEBOUNCE_MS);
+		}
+	}
+
+	// Undo last action
+	function undo() {
+		if (historyStack.length <= 1) return; // Need at least initial state + one change
+
+		isUndoRedoAction = true;
+
+		// Move current state to redo stack
+		const currentState = historyStack[historyStack.length - 1];
+		redoStack = [...redoStack, currentState];
+
+		// Remove current state from history
+		historyStack = historyStack.slice(0, -1);
+
+		// Restore previous state
+		const previousState = historyStack[historyStack.length - 1];
+		restoreState(previousState);
+
+		saveHistoryToSession();
+
+		isUndoRedoAction = false;
+	}
+
+	// Redo last undone action
+	function redo() {
+		if (redoStack.length === 0) return;
+
+		isUndoRedoAction = true;
+
+		// Pop from redo stack
+		const nextState = redoStack[redoStack.length - 1];
+		redoStack = redoStack.slice(0, -1);
+
+		// Push to history
+		historyStack = [...historyStack, nextState];
+
+		// Restore state
+		restoreState(nextState);
+
+		saveHistoryToSession();
+
+		isUndoRedoAction = false;
+	}
+
+	// Restore application state from a history snapshot
+	function restoreState(state: HistoryState) {
+		selectedFrets = { ...state.selectedFrets };
+		selectedKey = state.selectedKey;
+		previousKey = state.selectedKey;
+		isMajor = state.isMajor;
+		previousIsMajor = state.isMajor;
+		selectedScale = state.selectedScale;
+		selectedColor = state.selectedColor;
+		customColor = state.customColor;
+		showShapeBoxes = state.showShapeBoxes;
+		show3NPSShapeBoxes = state.show3NPSShapeBoxes;
+		selected3NPSShape = state.selected3NPSShape;
+		showIntervals = state.showIntervals;
+		eraseSelectedColorOnly = state.eraseSelectedColorOnly;
+		lastAppliedScale = state.lastAppliedScale;
+		scaleToRemove = state.scaleToRemove;
+
+		// Recalculate shapes for restored state
+		activeShapes = calculatePentatonicShapes(selectedKey);
+		if (show3NPSShapeBoxes) {
+			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+		} else {
+			active3NPSShapes = [];
+		}
+	}
+
+	// Check if undo/redo is available
+	function canUndo(): boolean {
+		return historyStack.length > 1;
+	}
+
+	function canRedo(): boolean {
+		return redoStack.length > 0;
+	}
+
+	// Keyboard shortcuts handler
+	function handleKeydown(e: KeyboardEvent) {
+		// Ctrl+Z or Cmd+Z for undo
+		if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+			e.preventDefault();
+			undo();
+		}
+		// Ctrl+Y or Cmd+Shift+Z for redo
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+			e.preventDefault();
+			redo();
+		}
+	}
+
+	// ============================================
+
 	// Transpose all notes by a number of semitones
 	function transposeNotes(semitones: number) {
 		if (Object.keys(selectedFrets).length === 0) return;
@@ -213,6 +434,8 @@
 			if (show3NPSShapeBoxes) {
 				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
 			}
+
+			pushHistory(true);
 		}
 
 		// Update previous values
@@ -352,6 +575,8 @@
 		} else {
 			active3NPSShapes = [];
 		}
+
+		pushHistory(true);
 	}
 
 	function deletePreset() {
@@ -427,7 +652,30 @@
 
 	onMount(() => {
 		loadFromStorage();
+
+		// Load history from sessionStorage
+		try {
+			const savedHistory = sessionStorage.getItem(HISTORY_KEY);
+			if (savedHistory) {
+				const parsed = JSON.parse(savedHistory);
+				if (parsed.history && Array.isArray(parsed.history)) {
+					historyStack = parsed.history;
+				}
+				if (parsed.redo && Array.isArray(parsed.redo)) {
+					redoStack = parsed.redo;
+				}
+			}
+		} catch (e) {
+			console.error('Failed to load history from sessionStorage:', e);
+		}
+
 		isLoaded = true;
+
+		// Save initial state if history is empty
+		if (historyStack.length === 0) {
+			historyStack = [captureState()];
+			saveHistoryToSession();
+		}
 	});
 
 	// Only save after initial load to prevent overwriting saved state
@@ -1018,6 +1266,8 @@
 
 		// Track the last applied scale (use 'pentatonic' if layering to allow further layering)
 		lastAppliedScale = shouldLayer ? 'pentatonic' : selectedScale;
+
+		pushHistory(true);
 	}
 
 	// Recalculate 3NPS shapes when selection changes
@@ -1054,6 +1304,7 @@
 
 		// Trigger reactivity
 		selectedFrets = { ...selectedFrets };
+		pushHistory(true);
 	}
 
 	// Color options - predefined colors that match the dark theme
@@ -1178,18 +1429,21 @@
 		selectedFrets = {};
 		activeShapes = [];
 		lastAppliedScale = null;
+		pushHistory(true);
 	}
 
 	function clearString(stringIndex: number) {
 		for (let i = 0; i <= fretCount; i++) {
 			delete selectedFrets[`${stringIndex}-${i}`];
 		}
+		pushHistory(true);
 	}
 
 	function selectString(stringIndex: number) {
 		for (let i = 0; i <= fretCount; i++) {
 			selectedFrets[`${stringIndex}-${i}`] = selectedColor;
 		}
+		pushHistory(true);
 	}
 
 	function startPainting(stringIndex: number, fretIndex: number) {
@@ -1199,6 +1453,9 @@
 	}
 
 	function stopPainting() {
+		if (isPainting) {
+			pushHistory(true); // Save immediately after painting completes
+		}
 		isPainting = false;
 	}
 
@@ -1221,7 +1478,7 @@
 	}
 </script>
 
-<svelte:window onmouseup={stopPainting} />
+<svelte:window onmouseup={stopPainting} onkeydown={handleKeydown} />
 
 <div class="flex min-h-screen flex-col p-8">
 	<header class="mb-12 text-center">
@@ -1248,6 +1505,35 @@
 				</Collapsible.Trigger>
 				<Collapsible.Content class="mt-2 rounded-lg border border-border/50 bg-card/50 p-4">
 					<div class="space-y-4">
+						<!-- Undo/Redo Section -->
+						<div class="flex items-center justify-between border-b border-border/50 pb-4">
+							<span class="text-sm font-medium text-muted-foreground">History</span>
+							<div class="flex gap-2">
+								<Button
+									onclick={undo}
+									variant="outline"
+									size="sm"
+									disabled={!canUndo()}
+									class="h-8 px-2"
+									title="Undo (Ctrl+Z)"
+								>
+									<Undo2 class="mr-1 h-4 w-4" />
+									Undo
+								</Button>
+								<Button
+									onclick={redo}
+									variant="outline"
+									size="sm"
+									disabled={!canRedo()}
+									class="h-8 px-2"
+									title="Redo (Ctrl+Y)"
+								>
+									<Redo2 class="mr-1 h-4 w-4" />
+									Redo
+								</Button>
+							</div>
+						</div>
+
 						<!-- Presets Section -->
 						<div class="border-b border-border/50 pb-4">
 							<span class="mb-3 block text-sm font-medium text-muted-foreground">Presets</span>
