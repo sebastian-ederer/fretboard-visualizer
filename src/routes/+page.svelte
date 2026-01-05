@@ -671,6 +671,16 @@
 
 		isLoaded = true;
 
+		// Always calculate pentatonic shapes on load (based on current key)
+		if (activeShapes.length === 0) {
+			activeShapes = calculatePentatonicShapes(selectedKey);
+		}
+
+		// Calculate 3NPS shapes if enabled
+		if (show3NPSShapeBoxes && active3NPSShapes.length === 0) {
+			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+		}
+
 		// Save initial state if history is empty
 		if (historyStack.length === 0) {
 			historyStack = [captureState()];
@@ -1427,8 +1437,9 @@
 
 	function clearAll() {
 		selectedFrets = {};
-		activeShapes = [];
 		lastAppliedScale = null;
+		// Keep pentatonic shapes visible (recalculate based on current key)
+		activeShapes = calculatePentatonicShapes(selectedKey);
 		pushHistory(true);
 	}
 
