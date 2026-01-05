@@ -58,71 +58,63 @@
 		onAfterChange?.();
 	}
 
-	// Scroll handlers
-	function scrollKey(e: WheelEvent) {
-		e.preventDefault();
-		const idx = getNoteIndex(s.selectedKey);
-		const newIdx =
-			e.deltaY > 0
-				? (idx + 1) % chromaticScale.length
-				: (idx - 1 + chromaticScale.length) % chromaticScale.length;
-		s.selectedKey = chromaticScale[newIdx];
+	// Generic scroll handler factory
+	function createScrollHandler<T>(
+		getOptions: () => T[],
+		getValue: () => T,
+		setValue: (v: T) => void,
+		onAfter?: () => void
+	) {
+		return (e: WheelEvent) => {
+			e.preventDefault();
+			const options = getOptions();
+			if (options.length === 0) return;
+			const idx = options.indexOf(getValue());
+			const newIdx = e.deltaY > 0
+				? (idx + 1) % options.length
+				: (idx - 1 + options.length) % options.length;
+			setValue(options[newIdx]);
+			onAfter?.();
+		};
 	}
 
-	function scrollScale(e: WheelEvent) {
-		e.preventDefault();
-		const idx = SCALE_OPTIONS.indexOf(s.selectedScale);
-		const newIdx =
-			e.deltaY > 0
-				? (idx + 1) % SCALE_OPTIONS.length
-				: (idx - 1 + SCALE_OPTIONS.length) % SCALE_OPTIONS.length;
-		s.selectedScale = SCALE_OPTIONS[newIdx];
-	}
+	// Scroll handlers using the factory
+	const scrollKey = createScrollHandler(
+		() => chromaticScale,
+		() => s.selectedKey,
+		(v) => (s.selectedKey = v)
+	);
 
-	function scrollRemoveScale(e: WheelEvent) {
-		e.preventDefault();
-		const idx = REMOVE_SCALE_OPTIONS.indexOf(s.scaleToRemove);
-		const newIdx =
-			e.deltaY > 0
-				? (idx + 1) % REMOVE_SCALE_OPTIONS.length
-				: (idx - 1 + REMOVE_SCALE_OPTIONS.length) % REMOVE_SCALE_OPTIONS.length;
-		s.scaleToRemove = REMOVE_SCALE_OPTIONS[newIdx];
-	}
+	const scrollScale = createScrollHandler(
+		() => SCALE_OPTIONS,
+		() => s.selectedScale,
+		(v) => (s.selectedScale = v)
+	);
 
-	function scroll3NPSShape(e: WheelEvent) {
-		e.preventDefault();
-		const currentVal = s.selected3NPSShape?.toString() ?? '1';
-		const idx = THREE_NPS_OPTIONS.indexOf(currentVal);
-		const newIdx =
-			e.deltaY > 0
-				? (idx + 1) % THREE_NPS_OPTIONS.length
-				: (idx - 1 + THREE_NPS_OPTIONS.length) % THREE_NPS_OPTIONS.length;
-		s.selected3NPSShape = parseInt(THREE_NPS_OPTIONS[newIdx]);
-		store.recalculateShapes();
-	}
+	const scrollRemoveScale = createScrollHandler(
+		() => REMOVE_SCALE_OPTIONS,
+		() => s.scaleToRemove,
+		(v) => (s.scaleToRemove = v)
+	);
 
-	function scrollPreset(e: WheelEvent) {
-		e.preventDefault();
-		const presetNames = Object.keys(s.savedPresets);
-		if (presetNames.length === 0) return;
-		const idx = presetNames.indexOf(s.selectedPresetName);
-		const newIdx =
-			e.deltaY > 0
-				? (idx + 1) % presetNames.length
-				: (idx - 1 + presetNames.length) % presetNames.length;
-		s.selectedPresetName = presetNames[newIdx];
-	}
+	const scroll3NPSShape = createScrollHandler(
+		() => THREE_NPS_OPTIONS,
+		() => s.selected3NPSShape?.toString() ?? '1',
+		(v) => (s.selected3NPSShape = parseInt(v)),
+		() => store.recalculateShapes()
+	);
 
-	function scrollTuning(e: WheelEvent) {
-		e.preventDefault();
-		let idx = tuningPresetKeys.indexOf(s.selectedTuningPreset);
-		if (idx === -1) idx = e.deltaY > 0 ? -1 : 0;
-		const newIdx =
-			e.deltaY > 0
-				? (idx + 1) % tuningPresetKeys.length
-				: (idx - 1 + tuningPresetKeys.length) % tuningPresetKeys.length;
-		store.applyTuningPreset(tuningPresetKeys[newIdx]);
-	}
+	const scrollPreset = createScrollHandler(
+		() => Object.keys(s.savedPresets),
+		() => s.selectedPresetName,
+		(v) => (s.selectedPresetName = v)
+	);
+
+	const scrollTuning = createScrollHandler(
+		() => tuningPresetKeys,
+		() => s.selectedTuningPreset,
+		(v) => store.applyTuningPreset(v)
+	);
 
 	function scrollStringTuning(e: WheelEvent, stringIndex: number) {
 		e.preventDefault();
@@ -401,42 +393,39 @@
 
 					<!-- Scale Type Selection -->
 					<div class="flex flex-col gap-1">
-						<span id="scale-select-label" class="text-xs text-muted-foreground/70">Scale</span>
-						<Select.Root type="single" bind:value={s.selectedScale}>
-							<Select.Trigger
-								class="w-full sm:w-36"
-								onwheel={scrollScale}
-								onkeydown={(e) => handleArrowKeys(e, SCALE_OPTIONS, () => s.selectedScale, (v) => (s.selectedScale = v))}
-								aria-labelledby="scale-select-label"
-							>
-								{#if s.selectedScale === 'melodic-minor'}
-									Melodic Minor
-								{:else}
-									{s.selectedScale.charAt(0).toUpperCase() + s.selectedScale.slice(1)}
-								{/if}
-							</Select.Trigger>
-							<Select.Content class="max-h-64 overflow-y-auto">
-								<Select.Item value="pentatonic">Pentatonic</Select.Item>
-								<Select.Item value="blues">Blues</Select.Item>
-								<Select.Item value="diatonic">Diatonic</Select.Item>
-								<Select.Item value="ionian">Ionian</Select.Item>
-								<Select.Item value="dorian">Dorian</Select.Item>
-								<Select.Item value="phrygian">Phrygian</Select.Item>
-								<Select.Item value="lydian">Lydian</Select.Item>
-								<Select.Item value="mixolydian">Mixolydian</Select.Item>
-								<Select.Item value="aeolian">Aeolian</Select.Item>
-								<Select.Item value="locrian">Locrian</Select.Item>
-								<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
-							</Select.Content>
-						</Select.Root>
-					</div>
-
-					<!-- Apply Button -->
-					<div class="flex flex-col gap-1">
-						<span class="text-xs text-muted-foreground/70 opacity-0">Apply</span>
-						<Button onclick={store.applyScale} variant="secondary" class="h-9 w-full px-3 sm:w-auto" title="Apply scale">
-							<Plus class="h-4 w-4" />
-						</Button>
+						<span id="scale-select-label" class="text-xs text-muted-foreground/70">Add</span>
+						<div class="flex gap-1">
+							<Select.Root type="single" bind:value={s.selectedScale}>
+								<Select.Trigger
+									class="h-9 w-full sm:w-28"
+									onwheel={scrollScale}
+									onkeydown={(e) => handleArrowKeys(e, SCALE_OPTIONS, () => s.selectedScale, (v) => (s.selectedScale = v))}
+									aria-labelledby="scale-select-label"
+								>
+									{#if s.selectedScale === 'melodic-minor'}
+										Mel. Minor
+									{:else}
+										{s.selectedScale.charAt(0).toUpperCase() + s.selectedScale.slice(1)}
+									{/if}
+								</Select.Trigger>
+								<Select.Content class="max-h-64 overflow-y-auto">
+									<Select.Item value="pentatonic">Pentatonic</Select.Item>
+									<Select.Item value="blues">Blues</Select.Item>
+									<Select.Item value="diatonic">Diatonic</Select.Item>
+									<Select.Item value="ionian">Ionian</Select.Item>
+									<Select.Item value="dorian">Dorian</Select.Item>
+									<Select.Item value="phrygian">Phrygian</Select.Item>
+									<Select.Item value="lydian">Lydian</Select.Item>
+									<Select.Item value="mixolydian">Mixolydian</Select.Item>
+									<Select.Item value="aeolian">Aeolian</Select.Item>
+									<Select.Item value="locrian">Locrian</Select.Item>
+									<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
+								</Select.Content>
+							</Select.Root>
+							<Button onclick={store.applyScale} variant="secondary" class="h-9 px-2" aria-label="Add scale notes">
+								<Plus class="h-4 w-4" />
+							</Button>
+						</div>
 					</div>
 
 					<!-- Remove Scale Notes -->

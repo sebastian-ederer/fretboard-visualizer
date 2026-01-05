@@ -103,6 +103,48 @@ function createFretboardStore() {
 		};
 	}
 
+	// Shallow comparison for history states (faster than JSON.stringify)
+	function statesEqual(a: HistoryState, b: HistoryState): boolean {
+		// Compare primitive fields first (fast bail-out)
+		if (
+			a.selectedKey !== b.selectedKey ||
+			a.isMajor !== b.isMajor ||
+			a.appliedIsMajor !== b.appliedIsMajor ||
+			a.selectedScale !== b.selectedScale ||
+			a.selectedColor !== b.selectedColor ||
+			a.customColor !== b.customColor ||
+			a.showShapeBoxes !== b.showShapeBoxes ||
+			a.show3NPSShapeBoxes !== b.show3NPSShapeBoxes ||
+			a.selected3NPSShape !== b.selected3NPSShape ||
+			a.showIntervals !== b.showIntervals ||
+			a.useFlats !== b.useFlats ||
+			a.eraseSelectedColorOnly !== b.eraseSelectedColorOnly ||
+			a.lastAppliedScale !== b.lastAppliedScale ||
+			a.scaleToRemove !== b.scaleToRemove ||
+			a.selectedTuningPreset !== b.selectedTuningPreset
+		) {
+			return false;
+		}
+
+		// Compare strings array
+		if (a.strings?.length !== b.strings?.length) return false;
+		if (a.strings && b.strings) {
+			for (let i = 0; i < a.strings.length; i++) {
+				if (a.strings[i] !== b.strings[i]) return false;
+			}
+		}
+
+		// Compare selectedFrets object
+		const aKeys = Object.keys(a.selectedFrets);
+		const bKeys = Object.keys(b.selectedFrets);
+		if (aKeys.length !== bKeys.length) return false;
+		for (const key of aKeys) {
+			if (a.selectedFrets[key] !== b.selectedFrets[key]) return false;
+		}
+
+		return true;
+	}
+
 	// Push to history
 	function pushHistory(immediate = false) {
 		if (state.isUndoRedoAction || !state.isLoaded) return;
@@ -116,7 +158,7 @@ function createFretboardStore() {
 
 			if (state.historyStack.length > 0) {
 				const lastState = state.historyStack[state.historyStack.length - 1];
-				if (JSON.stringify(currentState) === JSON.stringify(lastState)) {
+				if (statesEqual(currentState, lastState)) {
 					return;
 				}
 			}
@@ -224,6 +266,20 @@ function createFretboardStore() {
 		pushHistory(true);
 	}
 
+	// Get fret positions for scale notes on a string (more efficient than iterating all frets)
+	function getScaleFrets(stringBase: number, scaleNotes: Set<number>): number[] {
+		const frets: number[] = [];
+		for (const note of scaleNotes) {
+			// Calculate base fret where this note appears (0-11)
+			const baseFret = (note - stringBase + 12) % 12;
+			// Add all octaves that fit on the fretboard
+			for (let fret = baseFret; fret <= FRET_COUNT; fret += 12) {
+				frets.push(fret);
+			}
+		}
+		return frets;
+	}
+
 	// Apply scale to fretboard
 	function applyScale() {
 		// Validate inputs
@@ -240,14 +296,13 @@ function createFretboardStore() {
 
 		recalculateShapes();
 
+		// Optimized: iterate only frets that contain scale notes
 		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
-			for (let fretIndex = 0; fretIndex <= FRET_COUNT; fretIndex++) {
-				const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
-				if (scaleNotes.has(noteIndex)) {
-					const key = `${stringIndex}-${fretIndex}`;
-					if (!state.selectedFrets[key]) {
-						state.selectedFrets[key] = state.selectedColor;
-					}
+			const frets = getScaleFrets(stringBaseNotes[stringIndex], scaleNotes);
+			for (const fretIndex of frets) {
+				const key = `${stringIndex}-${fretIndex}`;
+				if (!state.selectedFrets[key]) {
+					state.selectedFrets[key] = state.selectedColor;
 				}
 			}
 		}
@@ -273,12 +328,11 @@ function createFretboardStore() {
 			}
 		}
 
+		// Optimized: iterate only frets that contain extra notes
 		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
-			for (let fretIndex = 0; fretIndex <= FRET_COUNT; fretIndex++) {
-				const noteIndex = (stringBaseNotes[stringIndex] + fretIndex) % 12;
-				if (extraNotes.has(noteIndex)) {
-					delete state.selectedFrets[`${stringIndex}-${fretIndex}`];
-				}
+			const frets = getScaleFrets(stringBaseNotes[stringIndex], extraNotes);
+			for (const fretIndex of frets) {
+				delete state.selectedFrets[`${stringIndex}-${fretIndex}`];
 			}
 		}
 
@@ -457,10 +511,19 @@ function createFretboardStore() {
 		document.body.removeChild(link);
 	}
 
+	// Lazy-load html-to-image once and cache
+	let htmlToImageModule: typeof import('html-to-image') | null = null;
+	async function getHtmlToImage() {
+		if (!htmlToImageModule) {
+			htmlToImageModule = await import('html-to-image');
+		}
+		return htmlToImageModule;
+	}
+
 	async function exportAsPng() {
 		if (!fretboardElement) return;
-		const { toPng } = await import('html-to-image');
 		try {
+			const { toPng } = await getHtmlToImage();
 			const dataUrl = await toPng(fretboardElement, {
 				backgroundColor: '#09090b',
 				pixelRatio: 2
@@ -473,8 +536,8 @@ function createFretboardStore() {
 
 	async function exportAsSvg() {
 		if (!fretboardElement) return;
-		const { toSvg } = await import('html-to-image');
 		try {
+			const { toSvg } = await getHtmlToImage();
 			const dataUrl = await toSvg(fretboardElement, {
 				backgroundColor: '#09090b'
 			});

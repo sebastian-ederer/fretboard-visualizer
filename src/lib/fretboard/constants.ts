@@ -294,26 +294,9 @@ export const SHAPE_BORDER_COLORS = [
 	'rgba(236, 72, 153, 0.9)'
 ];
 
-// 3NPS shape colors
-export const THREE_NPS_SHAPE_COLORS = [
-	'rgba(255, 255, 255, 0.5)',
-	'rgba(255, 255, 255, 0.5)',
-	'rgba(255, 255, 255, 0.5)',
-	'rgba(255, 255, 255, 0.5)',
-	'rgba(255, 255, 255, 0.5)',
-	'rgba(255, 255, 255, 0.5)',
-	'rgba(255, 255, 255, 0.5)'
-];
-
-export const THREE_NPS_BORDER_COLORS = [
-	'rgba(255, 255, 255, 0.9)',
-	'rgba(255, 255, 255, 0.9)',
-	'rgba(255, 255, 255, 0.9)',
-	'rgba(255, 255, 255, 0.9)',
-	'rgba(255, 255, 255, 0.9)',
-	'rgba(255, 255, 255, 0.9)',
-	'rgba(255, 255, 255, 0.9)'
-];
+// 3NPS shape colors (single values, all shapes use same color)
+export const THREE_NPS_FILL_COLOR = 'rgba(255, 255, 255, 0.5)';
+export const THREE_NPS_BORDER_COLOR = 'rgba(255, 255, 255, 0.9)';
 
 // Preset note colors
 export const PRESET_COLORS = [

@@ -11,6 +11,16 @@ import {
 } from './constants';
 import { getNoteIndex, getRootFret } from './music-utils';
 
+// LRU cache helper with size limit
+const MAX_CACHE_SIZE = 24;
+function setWithLimit<T>(cache: Map<string, T>, key: string, value: T) {
+	if (cache.size >= MAX_CACHE_SIZE) {
+		const firstKey = cache.keys().next().value;
+		if (firstKey) cache.delete(firstKey);
+	}
+	cache.set(key, value);
+}
+
 // Memoization caches for shape calculations
 const pentatonicShapeCache = new Map<string, ActiveShape[]>();
 const threeNPSShapeCache = new Map<string, ActiveShape[]>();
@@ -52,7 +62,7 @@ export function calculatePentatonicShapes(
 	});
 
 	result.sort((a, b) => a.startFret - b.startFret);
-	pentatonicShapeCache.set(cacheKey, result);
+	setWithLimit(pentatonicShapeCache, cacheKey, result);
 	return result;
 }
 
@@ -158,7 +168,7 @@ export function calculate3NPSShapes(
 		}
 	}
 
-	threeNPSShapeCache.set(cacheKey, result);
+	setWithLimit(threeNPSShapeCache, cacheKey, result);
 	return result;
 }
 

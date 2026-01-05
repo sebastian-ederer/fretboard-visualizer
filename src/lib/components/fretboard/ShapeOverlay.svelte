@@ -3,8 +3,8 @@
 	import {
 		SHAPE_COLORS,
 		SHAPE_BORDER_COLORS,
-		THREE_NPS_SHAPE_COLORS,
-		THREE_NPS_BORDER_COLORS
+		THREE_NPS_FILL_COLOR,
+		THREE_NPS_BORDER_COLOR
 	} from '$lib/fretboard/constants';
 	import {
 		generateShapePath,
@@ -23,18 +23,20 @@
 
 	let { shapes, type, appliedIsMajor = true }: Props = $props();
 
-	const colors = $derived(type === 'pentatonic' ? SHAPE_COLORS : THREE_NPS_SHAPE_COLORS);
-	const borderColors = $derived(type === 'pentatonic' ? SHAPE_BORDER_COLORS : THREE_NPS_BORDER_COLORS);
+	const isPentatonic = $derived(type === 'pentatonic');
 
-	function getColorIndex(shape: ActiveShape): number {
-		if (type === 'pentatonic') {
-			return getPentatonicShapeColorIndex(shape.name, appliedIsMajor);
-		}
-		return shape.colorIndex;
+	function getFillColor(shape: ActiveShape): string {
+		if (!isPentatonic) return THREE_NPS_FILL_COLOR;
+		return SHAPE_COLORS[getPentatonicShapeColorIndex(shape.name, appliedIsMajor)];
+	}
+
+	function getBorderColor(shape: ActiveShape): string {
+		if (!isPentatonic) return THREE_NPS_BORDER_COLOR;
+		return SHAPE_BORDER_COLORS[getPentatonicShapeColorIndex(shape.name, appliedIsMajor)];
 	}
 
 	function getShapeLabel(shape: ActiveShape): string {
-		if (type === 'pentatonic') {
+		if (isPentatonic) {
 			return `Shape ${getPentatonicShapeDisplayName(shape.name, appliedIsMajor)}`;
 		}
 		return `3NPS ${shape.name}`;
@@ -48,11 +50,10 @@
 	>
 		{#each shapes as shape (shape.name + '-' + type + '-' + shape.startFret)}
 			{#if isShapeVisible(shape) && shape.path}
-				{@const colorIdx = getColorIndex(shape)}
 				<path
 					d={generateShapePath(shape)}
-					fill={colors[colorIdx]}
-					stroke={borderColors[colorIdx]}
+					fill={getFillColor(shape)}
+					stroke={getBorderColor(shape)}
 					stroke-width="2"
 					stroke-linejoin="round"
 				/>
@@ -60,18 +61,19 @@
 		{/each}
 	</svg>
 
-	<!-- Shape labels -->
+	<!-- Shape labels (combined in single loop) -->
 	{#each shapes as shape (shape.name + '-' + type + '-' + shape.startFret + '-label')}
 		{#if shape.path && isShapeLabelVisible(shape)}
 			{@const labelPos = getShapeLabelPosition(shape)}
-			{@const colorIdx = getColorIndex(shape)}
+			{@const fillColor = getFillColor(shape)}
+			{@const borderColor = getBorderColor(shape)}
 			<div
 				class="pointer-events-none absolute z-20"
 				style="left: {labelPos.x + 24}px; top: {labelPos.y + 40}px; transform: translateX(-50%);"
 			>
 				<span
 					class="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold"
-					style="background-color: {colors[colorIdx]}; color: {borderColors[colorIdx]}; border: 1px solid {borderColors[colorIdx]};"
+					style="background-color: {fillColor}; color: {borderColor}; border: 1px solid {borderColor};"
 				>
 					{getShapeLabel(shape)}
 				</span>
