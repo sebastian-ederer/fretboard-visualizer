@@ -4,7 +4,10 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Info from '@lucide/svelte/icons/info';
+	import Plus from '@lucide/svelte/icons/plus';
 	import Redo2 from '@lucide/svelte/icons/redo-2';
 	import Settings from '@lucide/svelte/icons/settings';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -119,6 +122,7 @@
 	let selectedKey = $state('C');
 	let previousKey = $state('C');
 	let isMajor = $state(true);
+	let previousIsMajor = $state(true);
 	let appliedIsMajor = $state(true); // Tracks the major/minor when Apply was clicked
 	let selectedScale = $state('pentatonic');
 	let lastAppliedScale: string | null = $state(null);
@@ -223,7 +227,6 @@
 		'mixolydian',
 		'aeolian',
 		'locrian',
-		'dorian-#4',
 		'melodic-minor',
 		'diatonic'
 	];
@@ -247,7 +250,6 @@
 		'mixolydian',
 		'aeolian',
 		'locrian',
-		'dorian-#4',
 		'melodic-minor'
 	];
 
@@ -467,6 +469,7 @@
 		selectedKey = state.selectedKey;
 		previousKey = state.selectedKey;
 		isMajor = state.isMajor;
+		previousIsMajor = state.isMajor;
 		appliedIsMajor = state.appliedIsMajor ?? state.isMajor;
 		selectedScale = state.selectedScale;
 		selectedColor = state.selectedColor;
@@ -482,11 +485,16 @@
 		strings = state.strings ? [...state.strings] : ['E', 'B', 'G', 'D', 'A', 'E'];
 		selectedTuningPreset = state.selectedTuningPreset || 'standard';
 
-		// Recalculate shapes for restored state
-		activeShapes = calculatePentatonicShapes(selectedKey);
-		if (show3NPSShapeBoxes) {
-			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+		// Recalculate shapes for restored state (only in standard tuning)
+		if (selectedTuningPreset === 'standard') {
+			activeShapes = calculatePentatonicShapes(selectedKey);
+			if (show3NPSShapeBoxes) {
+				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			} else {
+				active3NPSShapes = [];
+			}
 		} else {
+			activeShapes = [];
 			active3NPSShapes = [];
 		}
 	}
@@ -550,10 +558,12 @@
 		if (semitoneShift !== 0) {
 			transposeNotes(semitoneShift);
 
-			// Recalculate shapes for new key
-			activeShapes = calculatePentatonicShapes(selectedKey);
-			if (show3NPSShapeBoxes) {
-				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			// Recalculate shapes for new key (only in standard tuning)
+			if (selectedTuningPreset === 'standard') {
+				activeShapes = calculatePentatonicShapes(selectedKey);
+				if (show3NPSShapeBoxes) {
+					active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+				}
 			}
 
 			pushHistory(true);
@@ -561,6 +571,27 @@
 
 		// Update previous key
 		previousKey = selectedKey;
+	});
+
+	// Reactive update when mode changes (parallel major/minor - same root, no transposition)
+	$effect(() => {
+		if (!isLoaded) return;
+
+		if (isMajor !== previousIsMajor) {
+			// Update applied mode for shape display
+			appliedIsMajor = isMajor;
+
+			// Recalculate shapes for new mode (only in standard tuning)
+			if (selectedTuningPreset === 'standard') {
+				activeShapes = calculatePentatonicShapes(selectedKey);
+				if (show3NPSShapeBoxes) {
+					active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+				}
+			}
+
+			pushHistory(true);
+			previousIsMajor = isMajor;
+		}
 	});
 
 	// Load state from localStorage on mount
@@ -578,6 +609,7 @@
 				}
 				if (state.isMajor !== undefined) {
 					isMajor = state.isMajor;
+					previousIsMajor = state.isMajor;
 				}
 				if (state.appliedIsMajor !== undefined) {
 					appliedIsMajor = state.appliedIsMajor;
@@ -599,10 +631,15 @@
 				if (state.strings) strings = state.strings;
 				if (state.selectedTuningPreset) selectedTuningPreset = state.selectedTuningPreset;
 
-				// Recalculate shapes based on loaded state
-				activeShapes = calculatePentatonicShapes(selectedKey);
-				if (show3NPSShapeBoxes) {
-					active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+				// Recalculate shapes based on loaded state (only in standard tuning)
+				if (selectedTuningPreset === 'standard') {
+					activeShapes = calculatePentatonicShapes(selectedKey);
+					if (show3NPSShapeBoxes) {
+						active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+					}
+				} else {
+					activeShapes = [];
+					active3NPSShapes = [];
 				}
 			}
 
@@ -691,6 +728,7 @@
 		selectedKey = preset.selectedKey;
 		previousKey = preset.selectedKey;
 		isMajor = preset.isMajor;
+		previousIsMajor = preset.isMajor;
 		appliedIsMajor = preset.appliedIsMajor ?? preset.isMajor;
 		selectedScale = preset.selectedScale;
 		selectedColor = preset.selectedColor;
@@ -706,11 +744,16 @@
 		strings = preset.strings ? [...preset.strings] : ['E', 'B', 'G', 'D', 'A', 'E'];
 		selectedTuningPreset = preset.selectedTuningPreset || 'standard';
 
-		// Recalculate shapes
-		activeShapes = calculatePentatonicShapes(selectedKey);
-		if (show3NPSShapeBoxes) {
-			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+		// Recalculate shapes (only in standard tuning)
+		if (selectedTuningPreset === 'standard') {
+			activeShapes = calculatePentatonicShapes(selectedKey);
+			if (show3NPSShapeBoxes) {
+				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			} else {
+				active3NPSShapes = [];
+			}
 		} else {
+			activeShapes = [];
 			active3NPSShapes = [];
 		}
 
@@ -809,20 +852,42 @@
 
 		isLoaded = true;
 
-		// Always calculate pentatonic shapes on load (based on current key)
-		if (activeShapes.length === 0) {
-			activeShapes = calculatePentatonicShapes(selectedKey);
-		}
+		// Calculate shapes on load (only in standard tuning)
+		if (selectedTuningPreset === 'standard') {
+			if (activeShapes.length === 0) {
+				activeShapes = calculatePentatonicShapes(selectedKey);
+			}
 
-		// Calculate 3NPS shapes if enabled
-		if (show3NPSShapeBoxes && active3NPSShapes.length === 0) {
-			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			// Calculate 3NPS shapes if enabled
+			if (show3NPSShapeBoxes && active3NPSShapes.length === 0) {
+				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			}
 		}
 
 		// Save initial state if history is empty
 		if (historyStack.length === 0) {
 			historyStack = [captureState()];
 			saveHistoryToSession();
+		}
+	});
+
+	// Handle tuning changes - clear or recalculate shapes
+	$effect(() => {
+		if (!isLoaded) return;
+
+		// Track tuning preset changes
+		selectedTuningPreset;
+
+		if (selectedTuningPreset === 'standard') {
+			// Recalculate shapes when returning to standard tuning
+			activeShapes = calculatePentatonicShapes(selectedKey);
+			if (show3NPSShapeBoxes) {
+				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			}
+		} else {
+			// Clear shapes when not in standard tuning
+			activeShapes = [];
+			active3NPSShapes = [];
 		}
 	});
 
@@ -886,7 +951,7 @@
 		},
 		lydian: {
 			major: [0, 2, 4, 6, 7, 9, 11], // Major pentatonic + #4 + 7
-			minor: [0, 2, 3, 5, 6, 7, 9, 10] // Dorian #4 (parallel minor feel)
+			minor: [0, 2, 3, 5, 6, 7, 9, 10] // Minor pentatonic + 2 + #4 + 6
 		},
 		mixolydian: {
 			major: [0, 2, 4, 5, 7, 9, 10], // Major pentatonic + 4 + b7
@@ -908,10 +973,6 @@
 		locrian: {
 			major: [0, 1, 3, 5, 6, 8, 10], // Standard Locrian
 			minor: [0, 1, 3, 5, 6, 7, 8, 10] // Minor pentatonic + b2 + b5 + b6
-		},
-		'dorian-#4': {
-			major: [0, 2, 4, 6, 7, 9, 11], // Lydian
-			minor: [0, 2, 3, 5, 6, 7, 9, 10] // Minor pentatonic + 2 + #4 + 6
 		},
 		'melodic-minor': {
 			major: [0, 2, 4, 5, 7, 9, 11], // Ionian
@@ -1407,22 +1468,23 @@
 	function applyScale() {
 		const scaleNotes = getScaleNotes(selectedKey, isMajor, selectedScale);
 
-		// Check if we should layer on top of pentatonic
-		const shouldLayer = lastAppliedScale === 'pentatonic' && selectedScale !== 'pentatonic';
+		// Pentatonic always layers on top of existing notes
+		// Other scales layer on top if last applied was pentatonic
+		const shouldLayer = selectedScale === 'pentatonic' || lastAppliedScale === 'pentatonic';
 
 		// Clear existing notes only if not layering
 		if (!shouldLayer) {
 			selectedFrets = {};
 		}
 
-		// Always calculate pentatonic shapes (can overlay on any scale)
-		activeShapes = calculatePentatonicShapes(selectedKey);
-
-		// Calculate 3NPS shapes if enabled
-		if (show3NPSShapeBoxes) {
-			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
-		} else {
-			active3NPSShapes = [];
+		// Calculate shapes (only in standard tuning)
+		if (selectedTuningPreset === 'standard') {
+			activeShapes = calculatePentatonicShapes(selectedKey);
+			if (show3NPSShapeBoxes) {
+				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			} else {
+				active3NPSShapes = [];
+			}
 		}
 
 		// Apply scale to all frets
@@ -1446,9 +1508,9 @@
 		pushHistory(true);
 	}
 
-	// Recalculate 3NPS shapes when selection changes
+	// Recalculate 3NPS shapes when selection changes (only in standard tuning)
 	function update3NPSShape() {
-		if (show3NPSShapeBoxes) {
+		if (show3NPSShapeBoxes && selectedTuningPreset === 'standard') {
 			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
 		} else {
 			active3NPSShapes = [];
@@ -1604,8 +1666,10 @@
 	function clearAll() {
 		selectedFrets = {};
 		lastAppliedScale = null;
-		// Keep pentatonic shapes visible (recalculate based on current key)
-		activeShapes = calculatePentatonicShapes(selectedKey);
+		// Keep pentatonic shapes visible (only in standard tuning)
+		if (selectedTuningPreset === 'standard') {
+			activeShapes = calculatePentatonicShapes(selectedKey);
+		}
 		pushHistory(true);
 	}
 
@@ -1799,72 +1863,62 @@
 							</div>
 						</div>
 
-						<div>
-							<span class="mb-2 block text-sm font-medium text-muted-foreground">Note Color</span>
-							<div class="flex items-center gap-3">
-								{#each presetColors as color (color)}
-									<button
-										class="h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 {selectedColor ===
-										color
-											? 'border-white ring-2 ring-white/30'
-											: 'border-transparent'}"
-										style="background-color: {color};"
-										onclick={() => selectPresetColor(color)}
-										aria-label="Select color {color}"
-									></button>
-								{/each}
-								<!-- Custom color picker -->
-								<div class="relative">
-									<input
-										type="color"
-										value={customColor}
-										onchange={handleCustomColorChange}
-										class="absolute inset-0 h-8 w-8 cursor-pointer opacity-0"
-										aria-label="Choose custom color"
-									/>
-									<div
-										class="flex h-8 w-8 items-center justify-center rounded-full p-[3px] transition-transform hover:scale-110 {selectedColor ===
-											customColor && !presetColors.includes(selectedColor)
-											? 'ring-2 ring-white/30'
-											: ''}"
-										style="background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);"
-									>
+						<!-- Display Settings -->
+						<div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+							<!-- Note Color -->
+							<div class="flex items-center gap-2">
+								<span class="text-sm text-muted-foreground">Color</span>
+								<div class="flex items-center gap-1">
+									{#each presetColors as color (color)}
+										<button
+											class="h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 {selectedColor ===
+											color
+												? 'border-white ring-1 ring-white/30'
+												: 'border-transparent'}"
+											style="background-color: {color};"
+											onclick={() => selectPresetColor(color)}
+											aria-label="Select color {color}"
+										></button>
+									{/each}
+									<div class="relative">
+										<input
+											type="color"
+											value={customColor}
+											onchange={handleCustomColorChange}
+											class="absolute inset-0 h-6 w-6 cursor-pointer opacity-0"
+											aria-label="Choose custom color"
+										/>
 										<div
-											class="h-full w-full rounded-full"
-											style="background-color: {customColor};"
-										></div>
+											class="flex h-6 w-6 items-center justify-center rounded-full p-[2px] transition-transform hover:scale-110 {selectedColor ===
+												customColor && !presetColors.includes(selectedColor)
+												? 'ring-1 ring-white/30'
+												: ''}"
+											style="background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);"
+										>
+											<div
+												class="h-full w-full rounded-full"
+												style="background-color: {customColor};"
+											></div>
+										</div>
 									</div>
 								</div>
 							</div>
-						</div>
-						<div class="flex items-center justify-between">
-							<div>
-								<span class="block text-sm font-medium text-muted-foreground"
-									>Erase selected color only</span
-								>
-								<span class="text-xs text-muted-foreground/70"
-									>Only erase notes matching the current color</span
-								>
-							</div>
-							<Switch bind:checked={eraseSelectedColorOnly} />
-						</div>
-						<div class="flex items-center justify-between">
-							<div>
-								<span class="block text-sm font-medium text-muted-foreground">Show intervals</span>
-								<span class="text-xs text-muted-foreground/70"
-									>Display interval numbers instead of note names</span
-								>
-							</div>
-							<Switch bind:checked={showIntervals} />
-						</div>
-						<div class="flex items-center justify-between">
-							<div>
-								<span class="block text-sm font-medium text-muted-foreground">Use flat notation</span>
-								<span class="text-xs text-muted-foreground/70"
-									>Display Db, Eb, Gb instead of C#, D#, F#</span
-								>
-							</div>
-							<Switch bind:checked={useFlats} />
+
+							<!-- Toggle Options -->
+							<label class="flex cursor-pointer items-center gap-2">
+								<Switch bind:checked={eraseSelectedColorOnly} />
+								<span class="text-sm text-muted-foreground">Erase color only</span>
+							</label>
+
+							<label class="flex cursor-pointer items-center gap-2">
+								<Switch bind:checked={showIntervals} />
+								<span class="text-sm text-muted-foreground">Intervals</span>
+							</label>
+
+							<label class="flex cursor-pointer items-center gap-2">
+								<Switch bind:checked={useFlats} />
+								<span class="text-sm text-muted-foreground">Flats</span>
+							</label>
 						</div>
 
 						<!-- Scale Selection -->
@@ -1893,7 +1947,7 @@
 								<div class="flex flex-col gap-1">
 									<span class="text-xs text-muted-foreground/70">Mode</span>
 									<div
-										class="flex items-center gap-2 rounded-md border border-border bg-background p-1"
+										class="flex items-center rounded-md border border-border bg-background p-1"
 									>
 										<button
 											class="rounded px-3 py-1 text-sm transition-colors {isMajor
@@ -1919,9 +1973,7 @@
 									<span class="text-xs text-muted-foreground/70">Scale</span>
 									<Select.Root type="single" bind:value={selectedScale}>
 										<Select.Trigger class="w-36" onwheel={scrollScale}>
-											{#if selectedScale === 'dorian-#4'}
-												Dorian #4
-											{:else if selectedScale === 'melodic-minor'}
+											{#if selectedScale === 'melodic-minor'}
 												Melodic Minor
 											{:else}
 												{selectedScale.charAt(0).toUpperCase() + selectedScale.slice(1)}
@@ -1930,6 +1982,7 @@
 										<Select.Content class="max-h-64 overflow-y-auto">
 											<Select.Item value="pentatonic">Pentatonic</Select.Item>
 											<Select.Item value="blues">Blues</Select.Item>
+											<Select.Item value="diatonic">Diatonic</Select.Item>
 											<Select.Item value="ionian">Ionian</Select.Item>
 											<Select.Item value="dorian">Dorian</Select.Item>
 											<Select.Item value="phrygian">Phrygian</Select.Item>
@@ -1937,15 +1990,15 @@
 											<Select.Item value="mixolydian">Mixolydian</Select.Item>
 											<Select.Item value="aeolian">Aeolian</Select.Item>
 											<Select.Item value="locrian">Locrian</Select.Item>
-											<Select.Item value="dorian-#4">Dorian #4</Select.Item>
 											<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
-											<Select.Item value="diatonic">Diatonic</Select.Item>
 										</Select.Content>
 									</Select.Root>
 								</div>
 
 								<!-- Apply Button -->
-								<Button onclick={applyScale} variant="secondary" class="h-9">Apply</Button>
+								<Button onclick={applyScale} variant="secondary" class="h-9 px-3" title="Apply scale">
+									<Plus class="h-4 w-4" />
+								</Button>
 
 								<!-- Remove Scale Notes -->
 								<div class="flex flex-col gap-1">
@@ -1955,8 +2008,6 @@
 											<Select.Trigger class="h-9 w-28" onwheel={scrollRemoveScale}>
 												{#if scaleToRemove === '3nps'}
 													3NPS
-												{:else if scaleToRemove === 'dorian-#4'}
-													Dorian #4
 												{:else if scaleToRemove === 'melodic-minor'}
 													Mel. Minor
 												{:else}
@@ -1972,7 +2023,6 @@
 												<Select.Item value="mixolydian">Mixolydian</Select.Item>
 												<Select.Item value="aeolian">Aeolian</Select.Item>
 												<Select.Item value="locrian">Locrian</Select.Item>
-												<Select.Item value="dorian-#4">Dorian #4</Select.Item>
 												<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
 											</Select.Content>
 										</Select.Root>
@@ -1985,50 +2035,63 @@
 										</Button>
 									</div>
 								</div>
+							</div>
+						</div>
 
-								<!-- Show pentatonic shapes toggle (works on any scale) -->
-								<div class="flex flex-col items-center gap-1">
-									<span class="text-xs text-muted-foreground/70">Pentatonic</span>
-									<div class="flex h-9 items-center justify-center">
-										<Switch bind:checked={showShapeBoxes} />
-									</div>
-								</div>
+						<!-- Shape Overlays -->
+						<div class="border-t border-border/50 pt-4">
+							<span class="mb-3 flex items-center gap-1 text-sm font-medium text-muted-foreground">
+								Shape Overlays
+								<Tooltip.Provider>
+									<Tooltip.Root>
+										<Tooltip.Trigger class="cursor-help">
+											<Info class="h-4 w-4 text-muted-foreground/70" />
+										</Tooltip.Trigger>
+										<Tooltip.Content>
+											<p>Shape overlays only work in Standard tuning</p>
+										</Tooltip.Content>
+									</Tooltip.Root>
+								</Tooltip.Provider>
+							</span>
+							<div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+								<!-- Pentatonic shapes toggle -->
+								<label class="flex cursor-pointer items-center gap-2">
+									<Switch bind:checked={showShapeBoxes} />
+									<span class="text-sm text-muted-foreground">Pentatonic Shapes</span>
+								</label>
 
-								<!-- Show 3NPS shapes toggle (works on any scale) -->
-								<div class="flex flex-col items-center gap-1">
-									<span class="text-xs text-muted-foreground/70">3NPS</span>
-									<div class="flex h-9 items-center justify-center">
-										<Switch bind:checked={show3NPSShapeBoxes} />
-									</div>
-								</div>
+								<!-- 3NPS shapes toggle -->
+								<label class="flex cursor-pointer items-center gap-2">
+									<Switch bind:checked={show3NPSShapeBoxes} />
+									<span class="text-sm text-muted-foreground">3NPS Shapes</span>
+								</label>
 
-								<!-- 3NPS Shape Selector (available for all scales) -->
-								{#if show3NPSShapeBoxes}
-									<div class="flex flex-col gap-1">
-										<span class="text-xs text-muted-foreground/70">3NPS Shape</span>
-										<Select.Root
-											type="single"
-											value={selected3NPSShape.toString()}
-											onValueChange={(v) => {
-												selected3NPSShape = parseInt(v);
-												update3NPSShape();
-											}}
-										>
-											<Select.Trigger class="w-28" onwheel={scroll3NPSShape}>
-												Shape {selected3NPSShape}
-											</Select.Trigger>
-											<Select.Content class="max-h-64 overflow-y-auto">
-												<Select.Item value="1">Shape 1</Select.Item>
-												<Select.Item value="2">Shape 2</Select.Item>
-												<Select.Item value="3">Shape 3</Select.Item>
-												<Select.Item value="4">Shape 4</Select.Item>
-												<Select.Item value="5">Shape 5</Select.Item>
-												<Select.Item value="6">Shape 6</Select.Item>
-												<Select.Item value="7">Shape 7</Select.Item>
-											</Select.Content>
-										</Select.Root>
-									</div>
-								{/if}
+								<!-- 3NPS Shape Selector -->
+								<Select.Root
+									type="single"
+									disabled={!show3NPSShapeBoxes}
+									value={selected3NPSShape.toString()}
+									onValueChange={(v) => {
+										selected3NPSShape = parseInt(v);
+										update3NPSShape();
+									}}
+								>
+									<Select.Trigger
+										class="w-28 {!show3NPSShapeBoxes ? 'opacity-50' : ''}"
+										onwheel={show3NPSShapeBoxes ? scroll3NPSShape : undefined}
+									>
+										Shape {selected3NPSShape}
+									</Select.Trigger>
+									<Select.Content class="max-h-64 overflow-y-auto">
+										<Select.Item value="1">Shape 1</Select.Item>
+										<Select.Item value="2">Shape 2</Select.Item>
+										<Select.Item value="3">Shape 3</Select.Item>
+										<Select.Item value="4">Shape 4</Select.Item>
+										<Select.Item value="5">Shape 5</Select.Item>
+										<Select.Item value="6">Shape 6</Select.Item>
+										<Select.Item value="7">Shape 7</Select.Item>
+									</Select.Content>
+								</Select.Root>
 							</div>
 						</div>
 
