@@ -41,13 +41,15 @@
 
 	// Scale settings
 	let selectedKey = $state('C');
+	let previousKey = $state('C');
 	let isMajor = $state(true);
+	let previousIsMajor = $state(true);
 	let selectedScale = $state('pentatonic');
 	let lastAppliedScale: string | null = $state(null);
 	let scaleToRemove = $state('ionian');
 
-	// 3NPS shape selection (1-7, or null for none)
-	let selected3NPSShape: number | null = $state(null);
+	// 3NPS shape selection (1-7)
+	let selected3NPSShape: number = $state(1);
 
 	// Display settings
 	let showIntervals = $state(false);
@@ -69,7 +71,7 @@
 		customColor: string;
 		showShapeBoxes: boolean;
 		show3NPSShapeBoxes: boolean;
-		selected3NPSShape: number | null;
+		selected3NPSShape: number;
 		showIntervals: boolean;
 		eraseSelectedColorOnly: boolean;
 		lastAppliedScale: string | null;
@@ -103,8 +105,7 @@
 		'locrian',
 		'dorian-#4',
 		'melodic-minor',
-		'diatonic',
-		'3nps'
+		'diatonic'
 	];
 
 	function scrollScale(e: WheelEvent) {
@@ -140,18 +141,17 @@
 		scaleToRemove = removeScaleOptions[newIdx];
 	}
 
-	const threeNPSOptions = ['none', '1', '2', '3', '4', '5', '6', '7'];
+	const threeNPSOptions = ['1', '2', '3', '4', '5', '6', '7'];
 
 	function scroll3NPSShape(e: WheelEvent) {
 		e.preventDefault();
-		const currentVal = selected3NPSShape?.toString() ?? 'none';
+		const currentVal = selected3NPSShape?.toString() ?? '1';
 		const idx = threeNPSOptions.indexOf(currentVal);
 		const newIdx =
 			e.deltaY > 0
 				? (idx + 1) % threeNPSOptions.length
 				: (idx - 1 + threeNPSOptions.length) % threeNPSOptions.length;
-		const newVal = threeNPSOptions[newIdx];
-		selected3NPSShape = newVal === 'none' ? null : parseInt(newVal);
+		selected3NPSShape = parseInt(threeNPSOptions[newIdx]);
 		update3NPSShape();
 	}
 
@@ -167,6 +167,59 @@
 		selectedPresetName = presetNames[newIdx];
 	}
 
+	// Transpose all notes by a number of semitones
+	function transposeNotes(semitones: number) {
+		if (Object.keys(selectedFrets).length === 0) return;
+		if (semitones === 0) return;
+
+		const newSelectedFrets: Record<string, string> = {};
+
+		for (const [key, color] of Object.entries(selectedFrets)) {
+			const [stringIndex, fretIndex] = key.split('-').map(Number);
+			const newFret = fretIndex + semitones;
+
+			// Calculate the pitch class (0-11) for the transposed note
+			const pitchClass = ((newFret % 12) + 12) % 12;
+
+			// Add the note at all octave positions across the fretboard
+			for (let f = pitchClass; f <= fretCount; f += 12) {
+				newSelectedFrets[`${stringIndex}-${f}`] = color;
+			}
+		}
+
+		selectedFrets = newSelectedFrets;
+	}
+
+	// Reactive transposition when key or major/minor changes
+	$effect(() => {
+		if (!isLoaded) return;
+
+		const oldKeyIndex = chromaticScale.indexOf(previousKey);
+		const newKeyIndex = chromaticScale.indexOf(selectedKey);
+		let semitoneShift = newKeyIndex - oldKeyIndex;
+
+		// Handle major/minor change (shift by 3 semitones for relative major/minor)
+		if (isMajor !== previousIsMajor) {
+			// When switching from minor to major, go up 3 semitones (relative major)
+			// When switching from major to minor, go down 3 semitones (relative minor)
+			semitoneShift += isMajor ? 3 : -3;
+		}
+
+		if (semitoneShift !== 0 || isMajor !== previousIsMajor) {
+			transposeNotes(semitoneShift);
+
+			// Recalculate shapes for new key
+			activeShapes = calculatePentatonicShapes(selectedKey);
+			if (show3NPSShapeBoxes) {
+				active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
+			}
+		}
+
+		// Update previous values
+		previousKey = selectedKey;
+		previousIsMajor = isMajor;
+	});
+
 	// Load state from localStorage on mount
 	function loadFromStorage() {
 		if (!browser) return;
@@ -176,8 +229,14 @@
 			if (saved) {
 				const state = JSON.parse(saved);
 				if (state.selectedFrets) selectedFrets = state.selectedFrets;
-				if (state.selectedKey) selectedKey = state.selectedKey;
-				if (state.isMajor !== undefined) isMajor = state.isMajor;
+				if (state.selectedKey) {
+					selectedKey = state.selectedKey;
+					previousKey = state.selectedKey;
+				}
+				if (state.isMajor !== undefined) {
+					isMajor = state.isMajor;
+					previousIsMajor = state.isMajor;
+				}
 				if (state.selectedScale) selectedScale = state.selectedScale;
 				if (state.selectedColor) selectedColor = state.selectedColor;
 				if (state.customColor) customColor = state.customColor;
@@ -192,7 +251,7 @@
 
 				// Recalculate shapes based on loaded state
 				activeShapes = calculatePentatonicShapes(selectedKey);
-				if (selected3NPSShape !== null) {
+				if (show3NPSShapeBoxes) {
 					active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
 				}
 			}
@@ -272,7 +331,9 @@
 
 		selectedFrets = { ...preset.selectedFrets };
 		selectedKey = preset.selectedKey;
+		previousKey = preset.selectedKey;
 		isMajor = preset.isMajor;
+		previousIsMajor = preset.isMajor;
 		selectedScale = preset.selectedScale;
 		selectedColor = preset.selectedColor;
 		customColor = preset.customColor;
@@ -286,7 +347,7 @@
 
 		// Recalculate shapes
 		activeShapes = calculatePentatonicShapes(selectedKey);
-		if (selected3NPSShape !== null) {
+		if (show3NPSShapeBoxes) {
 			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
 		} else {
 			active3NPSShapes = [];
@@ -934,8 +995,8 @@
 		// Always calculate pentatonic shapes (can overlay on any scale)
 		activeShapes = calculatePentatonicShapes(selectedKey);
 
-		// Calculate 3NPS shapes if one is selected (all octaves)
-		if (selected3NPSShape !== null) {
+		// Calculate 3NPS shapes if enabled
+		if (show3NPSShapeBoxes) {
 			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
 		} else {
 			active3NPSShapes = [];
@@ -961,7 +1022,7 @@
 
 	// Recalculate 3NPS shapes when selection changes
 	function update3NPSShape() {
-		if (selected3NPSShape !== null) {
+		if (show3NPSShapeBoxes) {
 			active3NPSShapes = calculate3NPSShapes(selectedKey, selected3NPSShape);
 		} else {
 			active3NPSShapes = [];
@@ -1383,9 +1444,7 @@
 									<span class="text-xs text-muted-foreground/70">Scale</span>
 									<Select.Root type="single" bind:value={selectedScale}>
 										<Select.Trigger class="w-36" onwheel={scrollScale}>
-											{#if selectedScale === '3nps'}
-												3 Notes/String
-											{:else if selectedScale === 'dorian-#4'}
+											{#if selectedScale === 'dorian-#4'}
 												Dorian #4
 											{:else if selectedScale === 'melodic-minor'}
 												Melodic Minor
@@ -1406,7 +1465,6 @@
 											<Select.Item value="dorian-#4">Dorian #4</Select.Item>
 											<Select.Item value="melodic-minor">Melodic Minor</Select.Item>
 											<Select.Item value="diatonic">Diatonic</Select.Item>
-											<Select.Item value="3nps">3 Notes/String</Select.Item>
 										</Select.Content>
 									</Select.Root>
 								</div>
@@ -1454,17 +1512,17 @@
 								</div>
 
 								<!-- Show pentatonic shapes toggle (works on any scale) -->
-								<div class="flex flex-col gap-1">
+								<div class="flex flex-col items-center gap-1">
 									<span class="text-xs text-muted-foreground/70">Pentatonic</span>
-									<div class="flex h-9 items-center">
+									<div class="flex h-9 items-center justify-center">
 										<Switch bind:checked={showShapeBoxes} />
 									</div>
 								</div>
 
 								<!-- Show 3NPS shapes toggle (works on any scale) -->
-								<div class="flex flex-col gap-1">
+								<div class="flex flex-col items-center gap-1">
 									<span class="text-xs text-muted-foreground/70">3NPS</span>
-									<div class="flex h-9 items-center">
+									<div class="flex h-9 items-center justify-center">
 										<Switch bind:checked={show3NPSShapeBoxes} />
 									</div>
 								</div>
@@ -1475,17 +1533,16 @@
 										<span class="text-xs text-muted-foreground/70">3NPS Shape</span>
 										<Select.Root
 											type="single"
-											value={selected3NPSShape?.toString() ?? 'none'}
+											value={selected3NPSShape.toString()}
 											onValueChange={(v) => {
-												selected3NPSShape = v === 'none' ? null : parseInt(v);
+												selected3NPSShape = parseInt(v);
 												update3NPSShape();
 											}}
 										>
 											<Select.Trigger class="w-28" onwheel={scroll3NPSShape}>
-												{selected3NPSShape === null ? 'None' : `Shape ${selected3NPSShape}`}
+												Shape {selected3NPSShape}
 											</Select.Trigger>
 											<Select.Content class="max-h-64 overflow-y-auto">
-												<Select.Item value="none">None</Select.Item>
 												<Select.Item value="1">Shape 1</Select.Item>
 												<Select.Item value="2">Shape 2</Select.Item>
 												<Select.Item value="3">Shape 3</Select.Item>
