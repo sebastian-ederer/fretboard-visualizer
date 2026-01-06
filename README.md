@@ -1,38 +1,88 @@
-# sv
+# Fretboard Visualizer
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/sebastian-ederer/fretboard-visualizer/pulls)
 
-## Creating a project
+An interactive guitar fretboard visualization tool for learning music theory. Click or paint notes on the fretboard to visualize scales, patterns, and chord shapes.
 
-If you're seeing this, you've probably already done this step. Congrats!
+> [!NOTE]
+> This entire app was vibe-coded using [Claude Code](https://claude.ai/code).
 
-```sh
-# create a new project in the current directory
-npx sv create
+## ✨ Features
 
-# create a new project in my-app
-npx sv create my-app
+### 🎯 Interactive Fretboard
+
+- Click to toggle notes on/off
+- Click and drag to paint multiple notes
+
+### 🎼 Scale Visualization
+
+- **Scales**: Pentatonic, Blues, Diatonic, and all 7 modes (Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian), plus Melodic Minor
+- **Key Selection**: All 12 keys with Major/Minor mode toggle
+- **Display Options**: Show note names or interval notation, toggle between sharps and flats
+
+### 📐 Shape Overlays
+
+- **Pentatonic Shapes**: Visual overlay for the 5 pentatonic box positions
+- **3NPS Shapes**: 7 three-notes-per-string scale patterns with highlighting
+
+### 💾 Presets & Export
+
+- Save and load custom presets
+- Import/export presets as JSON files
+- Export fretboard as PNG or SVG image
+- Auto-save to local storage
+
+## 🚀 Installation
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+
+### Setup
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/sebastian-ederer/fretboard-visualizer.git
+   cd fretboard-visualizer
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open your browser and navigate to `http://localhost:5173`
+
+## 📄 License
+
+```txt
+MIT License
+Copyright (c) 2025 CmdScale GmbH
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
