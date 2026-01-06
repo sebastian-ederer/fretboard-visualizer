@@ -6,6 +6,7 @@
 	import Undo2 from '@lucide/svelte/icons/undo-2';
 	import Redo2 from '@lucide/svelte/icons/redo-2';
 	import Download from '@lucide/svelte/icons/download';
+	import Github from '@lucide/svelte/icons/github';
 
 	// Shorthand access to state
 	const s = $derived(fretboardStore.state);
@@ -104,6 +105,16 @@
 					<Download class="mr-1 h-4 w-4" />
 					<span class="hidden text-xs sm:inline">SVG</span>
 				</Button>
+				<div class="mx-1 h-4 w-px bg-border"></div>
+				<a
+					href="https://github.com/sebastian-ederer/fretboard-visualizer"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					title="View on GitHub"
+				>
+					<Github class="h-4 w-4" />
+				</a>
 			</div>
 		</div>
 	</header>
