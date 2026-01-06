@@ -62,11 +62,22 @@ An interactive guitar fretboard visualization tool for learning music theory. Cl
 
 4. Open your browser and navigate to `http://localhost:5173`
 
+## Contributing 🤝
+
+Contributions are welcome! Whether it's bug fixes, new features, or just improving the docs — all help is appreciated. 🙌
+
+1. Fork the repo and create your branch
+2. Make your changes
+3. Run `npm run check` and `npm run lint` to catch any issues
+4. Open a pull request
+
+Got questions or ideas? Feel free to [open an issue](https://github.com/sebastian-ederer/fretboard-visualizer/issues)!
+
 ## 📄 License
 
 ```txt
 MIT License
-Copyright (c) 2025 CmdScale GmbH
+Copyright (c) 2026 Sebi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
