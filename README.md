@@ -5,6 +5,8 @@
 
 An interactive guitar fretboard visualization tool for learning music theory. Click or paint notes on the fretboard to visualize scales, patterns, and chord shapes.
 
+Available at: [https://sebastian-ederer.github.io/fretboard-visualizer/](https://sebastian-ederer.github.io/fretboard-visualizer/)
+
 > [!NOTE]
 > This entire app was vibe-coded using [Claude Code](https://claude.ai/code).
 
