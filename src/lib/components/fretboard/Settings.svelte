@@ -223,7 +223,7 @@
 										}}
 										aria-labelledby="preset-load-label"
 									>
-										{s.selectedPresetName || 'Select...'}
+										<span class="truncate">{s.selectedPresetName || 'Select...'}</span>
 									</Select.Trigger>
 									<Select.Content class="max-h-64 overflow-y-auto">
 										{#each Object.keys(s.savedPresets) as name (name)}
