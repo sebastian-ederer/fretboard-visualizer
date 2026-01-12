@@ -16,6 +16,8 @@ Available at: [https://sebastian-ederer.github.io/fretboard-visualizer/](https:/
 
 - Click to toggle notes on/off
 - Click and drag to paint multiple notes
+- **Variable string count**: Support for 4-12 strings (bass, standard, extended range guitars)
+- **Multiple tunings**: Standard, Drop D, DADGAD, Open G, Open D, Half Step Down, and custom tuning
 
 ### 🎼 Scale Visualization
 
@@ -27,6 +29,21 @@ Available at: [https://sebastian-ederer.github.io/fretboard-visualizer/](https:/
 
 - **Pentatonic Shapes**: Visual overlay for the 5 pentatonic box positions
 - **3NPS Shapes**: 7 three-notes-per-string scale patterns with highlighting
+
+### 🎵 Metronome
+
+- Adjustable tempo with slider and tap tempo
+- Configurable time signatures (1-16 beats, various beat units)
+- Multiple click sounds with volume control
+- Accent first beat option
+- Count-in feature (1 bar)
+- Auto tempo increase for practice sessions
+
+### 🔵 Circle of Fifths
+
+- Interactive visualization of key relationships
+- Major keys (outer ring) and relative minor keys (inner ring)
+- Highlights diatonic chords for the selected key
 
 ### 💾 Presets & Export
 

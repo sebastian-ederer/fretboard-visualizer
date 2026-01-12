@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Fretboard Visualizer is a guitar theory learning tool built with SvelteKit 2, Svelte 5, and Tailwind CSS 4. Users can click on frets to visualize notes and patterns on a guitar fretboard.
+Fretboard Visualizer is a guitar theory learning tool built with SvelteKit 2, Svelte 5, and Tailwind CSS 4. Users can click on frets to visualize notes and patterns on a guitar fretboard. The app includes a metronome and circle of fifths for practice.
 
 ## Commands
 
@@ -20,26 +20,167 @@ npm run format       # Auto-format with Prettier
 ## Tech Stack
 
 - **Svelte 5** with runes (`$state`, `$derived`, `$effect`, `$props`)
-- **SvelteKit 2** for routing and SSR
+- **SvelteKit 2** for routing and SSR (static adapter for GitHub Pages)
 - **Tailwind CSS 4** via `@tailwindcss/vite` plugin
 - **shadcn-svelte** for UI components (based on bits-ui)
 - **TypeScript** throughout
+- **html-to-image** for PNG/SVG export
 
-## Architecture
+## Project Structure
 
-### UI Components
-- shadcn-svelte components in `src/lib/components/ui/`
-- Add new components: `npx shadcn-svelte@latest add <component>`
-- Configuration in `components.json` (zinc base color, dark mode)
+```
+src/
+├── routes/
+│   ├── +page.svelte          # Main app page
+│   └── +layout.svelte        # Root layout (dark mode)
+├── lib/
+│   ├── components/
+│   │   ├── ui/               # shadcn-svelte components
+│   │   ├── fretboard/        # Fretboard, FretboardSettings, ShapeOverlay
+│   │   ├── metronome/        # MetronomeDisplay, MetronomeSettings
+│   │   ├── circle-of-fifths/ # CircleOfFifths
+│   │   └── side-panel/       # SidePanel (settings container)
+│   ├── fretboard/            # Fretboard feature module
+│   │   ├── store.svelte.ts   # Singleton store with $state
+│   │   ├── types.ts          # TypeScript interfaces
+│   │   ├── constants.ts      # Scales, tunings, layout dimensions
+│   │   ├── music-utils.ts    # Note/scale calculations
+│   │   ├── shape-utils.ts    # Shape overlay calculations
+│   │   ├── color-utils.ts    # Color manipulation
+│   │   ├── storage.ts        # localStorage persistence
+│   │   └── index.ts          # Barrel exports
+│   ├── metronome/            # Metronome feature module
+│   │   ├── store.svelte.ts   # Singleton store with $state
+│   │   ├── types.ts          # TypeScript interfaces
+│   │   ├── constants.ts      # Tempo limits, timing
+│   │   ├── audio.ts          # Web Audio API scheduling
+│   │   ├── storage.ts        # localStorage persistence
+│   │   └── index.ts          # Barrel exports
+│   └── utils.ts              # shadcn utility (cn function)
+└── app.css                   # Global styles + Tailwind
+```
 
-### Styling
+## Architecture Patterns
+
+### Singleton Stores with $state
+
+Feature stores use a factory pattern returning a singleton with `$state`:
+
+```typescript
+function createFeatureStore() {
+    const state = $state({
+        // All reactive state in one object
+        someValue: 'default',
+        isLoaded: false
+    });
+
+    function someAction() {
+        state.someValue = 'updated';
+    }
+
+    return {
+        state,                    // Expose for reactive access
+        get derivedValue() { return $derived(/*...*/); },
+        someAction,
+        initialize,               // Load from localStorage
+    };
+}
+
+export const featureStore = createFeatureStore();
+```
+
+**Usage in components:**
+```svelte
+<script lang="ts">
+    import { featureStore } from '$lib/feature';
+    const s = $derived(featureStore.state);  // Shorthand for state access
+</script>
+
+<div>{s.someValue}</div>
+```
+
+### Component Organization
+
+Each feature has its own folder under `src/lib/components/` with:
+- Main display component (e.g., `Fretboard.svelte`)
+- Settings component (e.g., `FretboardSettings.svelte`)
+- `index.ts` barrel export
+
+Components receive the store as a prop when they need to modify state:
+```svelte
+interface Props {
+    store: typeof featureStore;
+}
+let { store }: Props = $props();
+```
+
+### State Persistence
+
+- State auto-saves to localStorage via `$effect` in the store
+- Presets are stored separately from current state
+- History (undo/redo) uses a stack with debounced saves
+
+### UI Components (shadcn-svelte)
+
+Located in `src/lib/components/ui/`. Add new components with:
+```bash
+npx shadcn-svelte@latest add <component>
+```
+
+Configuration in `components.json` (zinc base color, dark mode).
+
+## Key Constants
+
+### Fretboard (`src/lib/fretboard/constants.ts`)
+- `FRET_COUNT = 24` - Number of frets
+- `MIN_STRING_COUNT = 4`, `MAX_STRING_COUNT = 12` - String range
+- `TUNING_PRESETS` - Standard, Drop D, DADGAD, Open G/D/E, etc.
+- `SCALE_INTERVALS` - Pentatonic, blues, modes, melodic minor
+- `PENTATONIC_SHAPES` - Path-based shape patterns for overlay
+
+### Metronome (`src/lib/metronome/constants.ts`)
+- `MIN_TEMPO = 20`, `MAX_TEMPO = 300` - BPM range
+- `CLICK_SOUNDS` - Available click sounds
+
+## Keyboard Shortcuts
+
+Defined in `+page.svelte`:
+- `Space` - Toggle metronome play/pause
+- `Ctrl+Z` - Undo
+- `Ctrl+Y` / `Ctrl+Shift+Z` - Redo
+
+## Styling
+
 - Global styles in `src/app.css` (Tailwind + shadcn theme variables)
-- Dark mode enabled via `.dark` class on root element in `+layout.svelte`
-- Use Tailwind utilities with shadcn color tokens (`bg-background`, `text-foreground`, `text-muted-foreground`, etc.)
+- Dark mode always enabled via `.dark` class on `<html>` in `+layout.svelte`
+- Use Tailwind utilities with shadcn color tokens:
+  - `bg-background`, `bg-card`, `bg-muted`
+  - `text-foreground`, `text-muted-foreground`
+  - `border-border`
 
-### State Management
-- Use `$state({})` with object maps for reactive collections (not native Set/Map)
-- Mutate object properties directly for reactivity; reassign for clearing
+## State Management Guidelines
+
+1. **Use `$state({})` with object maps** for reactive collections (not native Set/Map)
+2. **Mutate object properties directly** for reactivity
+3. **Reassign the object** (`state.obj = {...state.obj}`) when deleting properties
+4. **Use `$derived`** for computed values that depend on state
+5. **Debounce history saves** to avoid excessive storage writes
+
+## Adding New Features
+
+1. Create feature module in `src/lib/<feature>/`:
+   - `store.svelte.ts` - Singleton store
+   - `types.ts` - TypeScript interfaces
+   - `constants.ts` - Magic values and configs
+   - `storage.ts` - localStorage helpers
+   - `index.ts` - Barrel exports
+
+2. Create components in `src/lib/components/<feature>/`:
+   - Main display component
+   - Settings component (if needed)
+   - `index.ts` - Barrel export
+
+3. Initialize store in `+page.svelte` `onMount`
 
 ## Svelte MCP Tools
 
