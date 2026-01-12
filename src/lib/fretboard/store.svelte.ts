@@ -4,7 +4,10 @@ import {
 	TUNING_PRESETS,
 	PRESET_COLORS,
 	MAX_HISTORY_SIZE,
-	HISTORY_DEBOUNCE_MS
+	HISTORY_DEBOUNCE_MS,
+	MIN_STRING_COUNT,
+	MAX_STRING_COUNT,
+	DEFAULT_STRING_COUNT
 } from './constants';
 import {
 	getStringBaseNotes,
@@ -262,6 +265,46 @@ function createFretboardStore() {
 		const newIdx = (currentIdx + direction + 12) % 12;
 		state.strings[stringIndex] = chromaticScale[newIdx];
 		state.strings = [...state.strings];
+		state.selectedTuningPreset = 'custom';
+		pushHistory(true);
+	}
+
+	function setStringNote(stringIndex: number, note: string) {
+		if (stringIndex < 0 || stringIndex >= state.strings.length) return;
+		state.strings[stringIndex] = note;
+		state.strings = [...state.strings];
+		state.selectedTuningPreset = 'custom';
+		pushHistory(true);
+	}
+
+	function setStringCount(count: number) {
+		const newCount = Math.max(MIN_STRING_COUNT, Math.min(MAX_STRING_COUNT, count));
+		if (newCount === state.strings.length) return;
+
+		const currentCount = state.strings.length;
+
+		if (newCount > currentCount) {
+			// Add strings at the bottom (lower pitch)
+			// Default new strings to common bass notes going down in fourths
+			const bassNotes = ['E', 'B', 'F#', 'C#', 'G#', 'D#'];
+			const newStrings = [...state.strings];
+			for (let i = currentCount; i < newCount; i++) {
+				// Use bass notes pattern or just repeat the last note
+				const noteIndex = i - currentCount;
+				newStrings.push(bassNotes[noteIndex % bassNotes.length]);
+			}
+			state.strings = newStrings;
+		} else {
+			// Remove strings from the bottom and clean up their frets
+			for (let stringIndex = newCount; stringIndex < currentCount; stringIndex++) {
+				for (let fret = 0; fret <= FRET_COUNT; fret++) {
+					delete state.selectedFrets[`${stringIndex}-${fret}`];
+				}
+			}
+			state.strings = state.strings.slice(0, newCount);
+			state.selectedFrets = { ...state.selectedFrets };
+		}
+
 		state.selectedTuningPreset = 'custom';
 		pushHistory(true);
 	}
@@ -566,6 +609,8 @@ function createFretboardStore() {
 		redo,
 		applyTuningPreset,
 		changeStringTuning,
+		setStringNote,
+		setStringCount,
 		applyScale,
 		removeScaleNotes,
 		clearAll,

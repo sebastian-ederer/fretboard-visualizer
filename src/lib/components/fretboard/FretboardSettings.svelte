@@ -15,7 +15,9 @@
 		TUNING_PRESETS,
 		SCALE_OPTIONS,
 		REMOVE_SCALE_OPTIONS,
-		THREE_NPS_OPTIONS
+		THREE_NPS_OPTIONS,
+		MIN_STRING_COUNT,
+		MAX_STRING_COUNT
 	} from '$lib/fretboard/constants';
 	import { getDisplayNote, getNoteIndex, getChromaticScale } from '$lib/fretboard/music-utils';
 	import { exportPresetsToFile, importPresetsFromFile, savePresets } from '$lib/fretboard/storage';
@@ -416,7 +418,19 @@
 
 			<!-- Remove Scale Notes -->
 			<div class="space-y-1">
-				<span id="remove-scale-label" class="text-xs text-muted-foreground/70">Remove Scale</span>
+				<span id="remove-scale-label" class="flex items-center gap-1 text-xs text-muted-foreground/70">
+					Remove Scale
+					<Tooltip.Provider>
+						<Tooltip.Root>
+							<Tooltip.Trigger class="cursor-help">
+								<Info class="h-3 w-3" />
+							</Tooltip.Trigger>
+							<Tooltip.Content>
+								<p>Only removes notes not in the pentatonic scale</p>
+							</Tooltip.Content>
+						</Tooltip.Root>
+					</Tooltip.Provider>
+				</span>
 				<div class="flex gap-1">
 					<Select.Root type="single" bind:value={s.scaleToRemove}>
 						<Select.Trigger
@@ -522,9 +536,37 @@
 	<div class="border-b border-border/50 pb-4">
 		<span class="mb-3 block text-sm font-medium text-muted-foreground">Tuning</span>
 		<div class="space-y-3">
+			<!-- String Count -->
+			<div class="space-y-1">
+				<span id="string-count-label" class="text-xs text-muted-foreground/70">Number of Strings</span>
+				<div class="flex items-center gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-8 w-8 p-0"
+						onclick={() => store.setStringCount(s.strings.length - 1)}
+						disabled={s.strings.length <= MIN_STRING_COUNT}
+						aria-label="Remove string"
+					>
+						<Minus class="h-3 w-3" />
+					</Button>
+					<span class="w-8 text-center text-sm font-medium tabular-nums">{s.strings.length}</span>
+					<Button
+						variant="outline"
+						size="sm"
+						class="h-8 w-8 p-0"
+						onclick={() => store.setStringCount(s.strings.length + 1)}
+						disabled={s.strings.length >= MAX_STRING_COUNT}
+						aria-label="Add string"
+					>
+						<Plus class="h-3 w-3" />
+					</Button>
+				</div>
+			</div>
+
 			<!-- Tuning Preset Selection -->
 			<div class="space-y-1">
-				<span id="tuning-preset-label" class="text-xs text-muted-foreground/70">Preset</span>
+				<span id="tuning-preset-label" class="text-xs text-muted-foreground/70">Preset (6-string)</span>
 				<Select.Root
 					type="single"
 					value={s.selectedTuningPreset}
@@ -535,6 +577,7 @@
 						onwheel={scrollTuning}
 						onkeydown={(e) => handleArrowKeys(e, tuningPresetKeys, () => s.selectedTuningPreset, (v) => store.applyTuningPreset(v))}
 						aria-labelledby="tuning-preset-label"
+						disabled={s.strings.length !== 6}
 					>
 						{TUNING_PRESET_NAMES[s.selectedTuningPreset] || 'Custom'}
 					</Select.Trigger>
@@ -549,34 +592,24 @@
 			<!-- Individual String Tuning -->
 			<div class="space-y-1">
 				<span id="string-tuning-label" class="text-xs text-muted-foreground/70">Strings (low → high)</span>
-				<div class="grid grid-cols-6 gap-1" role="group" aria-labelledby="string-tuning-label">
-					{#each [5, 4, 3, 2, 1, 0] as stringIndex (stringIndex)}
+				<div class="flex flex-wrap gap-1" role="group" aria-labelledby="string-tuning-label">
+					{#each Array.from({ length: s.strings.length }, (_, i) => s.strings.length - 1 - i) as stringIndex (stringIndex)}
 						<Select.Root
 							type="single"
 							value={s.strings[stringIndex]}
-							onValueChange={(v) => {
-								s.strings[stringIndex] = v;
-								s.strings = [...s.strings];
-								s.selectedTuningPreset = 'custom';
-								store.pushHistory(true);
-							}}
+							onValueChange={(v) => store.setStringNote(stringIndex, v)}
 						>
 							<Select.Trigger
-								class="h-9 w-full justify-center px-1 [&>svg]:hidden"
+								class="h-9 w-10 justify-center px-1 [&>svg]:hidden"
 								onwheel={(e) => scrollStringTuning(e, stringIndex)}
 								onkeydown={(e) => handleArrowKeys(
 									e,
 									chromaticScale,
 									() => s.strings[stringIndex],
-									(v) => {
-										s.strings[stringIndex] = v;
-										s.strings = [...s.strings];
-										s.selectedTuningPreset = 'custom';
-										store.pushHistory(true);
-									}
+									(v) => store.setStringNote(stringIndex, v)
 								)}
 							>
-								<span class="w-full text-center">{getDisplayNote(s.strings[stringIndex], s.useFlats)}</span>
+								<span class="w-full text-center text-xs">{getDisplayNote(s.strings[stringIndex], s.useFlats)}</span>
 							</Select.Trigger>
 							<Select.Content class="max-h-64 overflow-y-auto">
 								{#each chromaticScale as note (note)}

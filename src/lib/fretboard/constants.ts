@@ -2,7 +2,9 @@ import type { ScaleInterval, Shape, ShapePattern } from './types';
 
 // Fretboard layout
 export const FRET_COUNT = 24;
-export const STRING_COUNT = 6;
+export const DEFAULT_STRING_COUNT = 6;
+export const MIN_STRING_COUNT = 4;
+export const MAX_STRING_COUNT = 12;
 
 // Layout dimensions (pixels)
 export const OPEN_FRET_WIDTH = 32;
