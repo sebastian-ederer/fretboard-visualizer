@@ -45,6 +45,13 @@
 	<meta name="twitter:description" content={description} />
 	<meta name="twitter:image" content={image} />
 
+	<!-- Analytics (GoatCounter - privacy-friendly, no cookies) -->
+	<script
+		data-goatcounter="https://sebastian-ederer.goatcounter.com/count"
+		async
+		src="//gc.zgo.at/count.js"
+	></script>
+
 	<!-- Structured Data -->
 	{@html `<script type="application/ld+json">${JSON.stringify({
 		'@context': 'https://schema.org',
