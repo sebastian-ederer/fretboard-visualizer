@@ -97,7 +97,7 @@
 				>
 					<Settings class="h-4 w-4" />
 				</Button>
-				<h1 class="text-lg font-semibold tracking-tight">Fretboard Visualizer</h1>
+				<h1 class="hidden text-lg font-semibold tracking-tight md:block">Fretboard Visualizer</h1>
 			</div>
 			<div class="flex items-center gap-1">
 				<Button
@@ -129,7 +129,7 @@
 					title="Save as PNG"
 				>
 					<Download class="mr-1 h-4 w-4" />
-					<span class="hidden text-xs sm:inline">PNG</span>
+					<span class="text-xs">PNG</span>
 				</Button>
 				<Button
 					onclick={fretboardStore.exportAsSvg}
@@ -139,7 +139,7 @@
 					title="Save as SVG"
 				>
 					<Download class="mr-1 h-4 w-4" />
-					<span class="hidden text-xs sm:inline">SVG</span>
+					<span class="text-xs">SVG</span>
 				</Button>
 				<div class="mx-1 h-4 w-px bg-border"></div>
 				<a
