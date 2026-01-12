@@ -1,17 +1,9 @@
 import { SHAPE_COLORS } from './constants';
+import { createLRUCache } from './cache-utils';
 import { getPentatonicShapeDisplayName } from './music-utils';
 
-// LRU cache with size limit
-const MAX_COLOR_CACHE_SIZE = 50;
-const complementaryColorCache = new Map<string, string>();
-
-function setColorCache(key: string, value: string) {
-	if (complementaryColorCache.size >= MAX_COLOR_CACHE_SIZE) {
-		const firstKey = complementaryColorCache.keys().next().value;
-		if (firstKey) complementaryColorCache.delete(firstKey);
-	}
-	complementaryColorCache.set(key, value);
-}
+// LRU cache for complementary color calculations
+const complementaryColorCache = createLRUCache<string>(50);
 
 /**
  * Calculate complementary color for high contrast borders (memoized)
@@ -20,6 +12,7 @@ export function getComplementaryColor(hexColor: string): string {
 	// Check cache first
 	const cached = complementaryColorCache.get(hexColor);
 	if (cached) return cached;
+
 	// Remove # if present
 	const hex = hexColor.replace('#', '');
 
@@ -81,7 +74,7 @@ export function getComplementaryColor(hexColor: string): string {
 	const bOut = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
 
 	const result = `rgb(${rOut}, ${gOut}, ${bOut})`;
-	setColorCache(hexColor, result);
+	complementaryColorCache.set(hexColor, result);
 	return result;
 }
 

@@ -103,15 +103,31 @@ export function getRootFret(key: string, stringBaseNotes: number[]): number {
 }
 
 /**
- * Get the display name for a pentatonic shape based on major/minor mode
- * Minor shapes 1-5 map to Major shapes 5,1,2,3,4 respectively
+ * Get the display name for a pentatonic shape based on major/minor mode.
+ *
+ * The pentatonic shapes are defined based on the minor pentatonic pattern
+ * (which is the standard CAGED-based numbering). When displaying in major mode,
+ * we need to convert because the relative major starts from a different position.
+ *
+ * The mapping is based on the relative major/minor relationship:
+ * - Minor shape 1 starts on the root, which is the 6th degree of relative major → Major shape 5
+ * - Minor shape 2 → Major shape 1
+ * - Minor shape 3 → Major shape 2
+ * - Minor shape 4 → Major shape 3
+ * - Minor shape 5 → Major shape 4
+ *
+ * Formula: majorNum = ((minorNum + 3) % 5) + 1
+ * This adds 3 (shifts by 3 positions in the cycle), wraps with mod 5, then adds 1 for 1-based indexing.
+ *
+ * @param minorShapeName - Shape number as string ("1" through "5")
+ * @param appliedIsMajor - Whether the current mode is major
+ * @returns The display shape number for the current mode
  */
 export function getPentatonicShapeDisplayName(minorShapeName: string, appliedIsMajor: boolean): string {
 	const minorNum = parseInt(minorShapeName);
 	if (isNaN(minorNum) || minorNum < 1 || minorNum > 5) return minorShapeName;
 
 	if (appliedIsMajor) {
-		// Convert minor shape number to major: ((n + 3) % 5) + 1
 		const majorNum = ((minorNum + 3) % 5) + 1;
 		return majorNum.toString();
 	}

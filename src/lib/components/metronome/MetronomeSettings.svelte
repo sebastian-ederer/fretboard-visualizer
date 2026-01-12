@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { metronomeStore, CLICK_SOUNDS, MIN_TEMPO, MAX_TEMPO } from '$lib/metronome';
+	import { metronomeStore, CLICK_SOUNDS, MIN_TEMPO, MAX_TEMPO, HOLD_REPEAT_DELAY, HOLD_REPEAT_INTERVAL } from '$lib/metronome';
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
@@ -42,8 +42,8 @@
 		holdTimeout = window.setTimeout(() => {
 			holdInterval = window.setInterval(() => {
 				metronomeStore.adjustTempo(delta);
-			}, 50);
-		}, 300);
+			}, HOLD_REPEAT_INTERVAL);
+		}, HOLD_REPEAT_DELAY);
 	}
 
 	function stopHold() {

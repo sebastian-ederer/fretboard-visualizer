@@ -14,6 +14,23 @@ export const STRING_LABEL_WIDTH = 40;
 export const STRING_THICKNESS_BASE = 1;
 export const STRING_THICKNESS_INCREMENT = 0.4;
 
+// Calculated layout dimensions
+/** Horizontal padding around fretboard content */
+export const FRETBOARD_PADDING_X = 24;
+/** Vertical offset from fretboard top to first string (includes fret numbers) */
+export const FRETBOARD_TOP_OFFSET = 48;
+/** Y offset for shape labels above fretboard */
+export const SHAPE_LABEL_Y_OFFSET = -28;
+/** Minimum width of fretboard container: padding + label + open fret + (fret_count * fret_width) + padding */
+export const FRETBOARD_MIN_WIDTH =
+	FRETBOARD_PADDING_X + STRING_LABEL_WIDTH + OPEN_FRET_WIDTH + FRET_COUNT * FRET_WIDTH + FRETBOARD_PADDING_X;
+
+// Touch/mouse interaction
+/** Maximum movement (px) during touch to still count as a tap vs scroll */
+export const TAP_THRESHOLD = 10;
+/** Time (ms) to ignore mousedown events after touchstart (prevents double-firing) */
+export const TOUCH_DEBOUNCE_MS = 500;
+
 // Fret markers
 export const SINGLE_DOT_FRETS = [3, 5, 7, 9, 15, 17, 19, 21];
 export const DOUBLE_DOT_FRETS = [12, 24];
@@ -50,6 +67,33 @@ export const CHROMATIC_SCALE_FLAT = [
 
 // Interval names (semitones from root)
 export const INTERVAL_NAMES = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'];
+
+// Circle of Fifths key order (clockwise from top)
+export const CIRCLE_OF_FIFTHS_MAJOR = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
+export const CIRCLE_OF_FIFTHS_MINOR = ['A', 'E', 'B', 'F#', 'C#', 'G#', 'Eb', 'Bb', 'F', 'C', 'G', 'D'];
+
+// Diatonic chord intervals (semitones from root) and their quality
+// Major scale: I(M), ii(m), iii(m), IV(M), V(M), vi(m), vii°(dim)
+export const MAJOR_SCALE_CHORDS = [
+	{ interval: 0, quality: 'major' }, // I
+	{ interval: 2, quality: 'minor' }, // ii
+	{ interval: 4, quality: 'minor' }, // iii
+	{ interval: 5, quality: 'major' }, // IV
+	{ interval: 7, quality: 'major' }, // V
+	{ interval: 9, quality: 'minor' }, // vi
+	{ interval: 11, quality: 'dim' } // vii°
+] as const;
+
+// Natural minor scale: i(m), ii°(dim), III(M), iv(m), v(m), VI(M), VII(M)
+export const MINOR_SCALE_CHORDS = [
+	{ interval: 0, quality: 'minor' }, // i
+	{ interval: 2, quality: 'dim' }, // ii°
+	{ interval: 3, quality: 'major' }, // III
+	{ interval: 5, quality: 'minor' }, // iv
+	{ interval: 7, quality: 'minor' }, // v
+	{ interval: 8, quality: 'major' }, // VI
+	{ interval: 10, quality: 'major' } // VII
+] as const;
 
 // Tuning presets (high to low string, as displayed)
 export const TUNING_PRESETS: Record<string, string[]> = {

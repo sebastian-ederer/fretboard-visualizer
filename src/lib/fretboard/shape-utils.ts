@@ -5,25 +5,17 @@ import {
 	FRET_WIDTH,
 	STRING_LABEL_WIDTH,
 	STRING_ROW_HEIGHT,
+	SHAPE_LABEL_Y_OFFSET,
 	PENTATONIC_SHAPES,
 	SCALE_INTERVALS,
 	SHAPE_BORDER_COLORS
 } from './constants';
+import { createLRUCache } from './cache-utils';
 import { getNoteIndex, getRootFret } from './music-utils';
 
-// LRU cache helper with size limit
-const MAX_CACHE_SIZE = 24;
-function setWithLimit<T>(cache: Map<string, T>, key: string, value: T) {
-	if (cache.size >= MAX_CACHE_SIZE) {
-		const firstKey = cache.keys().next().value;
-		if (firstKey) cache.delete(firstKey);
-	}
-	cache.set(key, value);
-}
-
-// Memoization caches for shape calculations
-const pentatonicShapeCache = new Map<string, ActiveShape[]>();
-const threeNPSShapeCache = new Map<string, ActiveShape[]>();
+// Memoization caches for shape calculations (24 entries handles all key/mode combinations)
+const pentatonicShapeCache = createLRUCache<ActiveShape[]>(24);
+const threeNPSShapeCache = createLRUCache<ActiveShape[]>(24);
 
 /**
  * Calculate all pentatonic shapes for a given key (memoized)
@@ -33,7 +25,6 @@ export function calculatePentatonicShapes(
 	isMajor: boolean,
 	stringBaseNotes: number[]
 ): ActiveShape[] {
-	// Check cache first
 	const cacheKey = `${key}-${isMajor}-${stringBaseNotes.join(',')}`;
 	const cached = pentatonicShapeCache.get(cacheKey);
 	if (cached) return cached;
@@ -62,12 +53,47 @@ export function calculatePentatonicShapes(
 	});
 
 	result.sort((a, b) => a.startFret - b.startFret);
-	setWithLimit(pentatonicShapeCache, cacheKey, result);
+	pentatonicShapeCache.set(cacheKey, result);
 	return result;
 }
 
 /**
- * Calculate 3NPS shapes for a given key and shape number (memoized)
+ * Calculate 3NPS (Three Notes Per String) shapes for a given key and shape number.
+ *
+ * 3NPS is a guitar scale system where each string plays exactly 3 notes of the scale.
+ * This creates consistent picking patterns and enables efficient position shifts.
+ *
+ * The algorithm works in 4 phases:
+ *
+ * **Phase 1: Calculate raw note positions**
+ * For each string (0=high E, 5=low E), we calculate 3 consecutive scale degrees.
+ * The starting degree shifts by 3 for each string going down (because standard tuning
+ * is mostly 4ths = 5 frets, and 3 notes span about 4-5 frets).
+ * Formula: stringOffset = (5 - stringIndex) * 3
+ *
+ * **Phase 2: Octave adjustment**
+ * Notes are initially calculated as fret 0-11 positions. We adjust them to form
+ * a continuous playable shape by:
+ * - Starting from the low E string (index 5)
+ * - Keeping each string's notes within a reasonable range of the previous string
+ * - Range: [referenceFret - 3, referenceFret + 8] allows for position shifts
+ * - Reference updates to the middle note of each string as we go up
+ *
+ * **Phase 3: Generate shape outline path**
+ * Creates a polygon path by tracing:
+ * - Right edge: highest fret on each string, bottom to top
+ * - Left edge: lowest fret on each string, top to bottom
+ * Path coordinates are relative to minFret for reusability across octaves.
+ *
+ * **Phase 4: Repeat for octaves**
+ * The same shape pattern repeats every 12 frets. We generate instances
+ * at octave offsets -1, 0, 1, 2 that are visible on the fretboard.
+ *
+ * @param key - Root note of the scale (e.g., "C", "G#")
+ * @param shapeNumber - Shape position 1-7 (each starts on a different scale degree)
+ * @param isMajor - True for major scale, false for natural minor
+ * @param stringBaseNotes - Array of semitone values for open strings [high E, B, G, D, A, low E]
+ * @returns Array of ActiveShape objects for rendering, sorted by position
  */
 export function calculate3NPSShapes(
 	key: string,
@@ -77,20 +103,21 @@ export function calculate3NPSShapes(
 ): ActiveShape[] {
 	if (shapeNumber < 1 || shapeNumber > 7) return [];
 
-	// Check cache first
 	const cacheKey = `${key}-${shapeNumber}-${isMajor}-${stringBaseNotes.join(',')}`;
 	const cached = threeNPSShapeCache.get(cacheKey);
 	if (cached) return cached;
 
 	const keyIndex = getNoteIndex(key);
 	const intervals = SCALE_INTERVALS['3nps'][isMajor ? 'major' : 'minor'];
-	const startDegree = shapeNumber - 1;
+	const startDegree = shapeNumber - 1; // Convert 1-based to 0-based
 
+	// Phase 1: Calculate raw note positions for each string
 	const stringNotes: { fret: number; stringIndex: number }[][] = [];
 
 	for (let stringIndex = 0; stringIndex < 6; stringIndex++) {
 		const stringBase = stringBaseNotes[stringIndex];
 		const notesOnString: { fret: number; stringIndex: number }[] = [];
+		// Offset increases by 3 for each string going down (towards bass)
 		const stringOffset = (5 - stringIndex) * 3;
 
 		for (let noteIdx = 0; noteIdx < 3; noteIdx++) {
@@ -104,6 +131,7 @@ export function calculate3NPSShapes(
 		stringNotes.push(notesOnString);
 	}
 
+	// Phase 2: Adjust octaves to form continuous shape (start from low E, work up)
 	let referenceFret = stringNotes[5]?.[0]?.fret || 0;
 	const adjustedNotes: { fret: number; stringIndex: number }[][] = [];
 
@@ -113,7 +141,9 @@ export function calculate3NPSShapes(
 
 		for (const note of notes) {
 			let fret = note.fret;
+			// Shift up octave if too far left of reference
 			while (fret < referenceFret - 3) fret += 12;
+			// Shift down octave if too far right of reference
 			while (fret > referenceFret + 8) fret -= 12;
 			adjusted.push({ fret, stringIndex: note.stringIndex });
 		}
@@ -121,18 +151,20 @@ export function calculate3NPSShapes(
 		adjusted.sort((a, b) => a.fret - b.fret);
 		adjustedNotes[stringIndex] = adjusted;
 
+		// Update reference to middle note for next string
 		if (adjusted.length > 0) {
 			referenceFret = adjusted[Math.floor(adjusted.length / 2)].fret;
 		}
 	}
 
+	// Phase 3: Build shape outline path
 	const allFrets = adjustedNotes.flat().map((n) => n.fret);
 	const minFret = Math.min(...allFrets);
 	const maxFret = Math.max(...allFrets);
 
 	const simplePath: [number, number][] = [];
 
-	// Right side going up (low E to high E)
+	// Right edge: trace highest fret on each string (low E → high E)
 	for (let stringIndex = 5; stringIndex >= 0; stringIndex--) {
 		const notes = adjustedNotes[stringIndex];
 		if (notes && notes.length > 0) {
@@ -141,17 +173,19 @@ export function calculate3NPSShapes(
 		}
 	}
 
-	// Left side going down (high E to low E)
+	// Left edge: trace lowest fret on each string (high E → low E)
 	for (let stringIndex = 0; stringIndex <= 5; stringIndex++) {
 		const notes = adjustedNotes[stringIndex];
 		if (notes && notes.length > 0) {
 			const leftmost = notes[0];
+			// Skip if same as rightmost (single-note edge)
 			if (notes.length > 1 || stringIndex === 0) {
 				simplePath.push([leftmost.fret - minFret, stringIndex]);
 			}
 		}
 	}
 
+	// Phase 4: Generate shapes at each visible octave
 	const result: ActiveShape[] = [];
 
 	for (let octave = -1; octave <= 2; octave++) {
@@ -168,7 +202,7 @@ export function calculate3NPSShapes(
 		}
 	}
 
-	setWithLimit(threeNPSShapeCache, cacheKey, result);
+	threeNPSShapeCache.set(cacheKey, result);
 	return result;
 }
 
@@ -186,10 +220,11 @@ export function getFretX(fret: number): number {
 
 /**
  * Get Y position for a specific string (center of string row)
+ * The 28px offset accounts for: fret numbers row (12px) + margin (12px) + half padding adjustment (4px)
  */
 export function getStringY(stringIndex: number): number {
-	// Offset from top + string row position + half row height
-	return 28 + stringIndex * STRING_ROW_HEIGHT + STRING_ROW_HEIGHT / 2;
+	const topOffset = 28;
+	return topOffset + stringIndex * STRING_ROW_HEIGHT + STRING_ROW_HEIGHT / 2;
 }
 
 /**
@@ -253,21 +288,21 @@ export function getShapeLabelPosition(shape: ActiveShape): { x: number; y: numbe
 		const maxFret = Math.min(FRET_COUNT, Math.max(...frets));
 		return {
 			x: (getFretX(minFret) + getFretX(maxFret)) / 2,
-			y: -28
+			y: SHAPE_LABEL_Y_OFFSET
 		};
 	} else if (shape.endFret !== undefined) {
-		// For rectangle shapes - calculate position
-		let left = 40;
+		// For rectangle shapes - calculate position using constants
+		let left = STRING_LABEL_WIDTH;
 		for (let i = 0; i < shape.startFret; i++) {
-			left += i === 0 ? 32 : 56;
+			left += i === 0 ? OPEN_FRET_WIDTH : FRET_WIDTH;
 		}
 		let width = 0;
 		for (let i = shape.startFret; i <= shape.endFret; i++) {
-			width += i === 0 ? 32 : 56;
+			width += i === 0 ? OPEN_FRET_WIDTH : FRET_WIDTH;
 		}
 		return {
 			x: left + width / 2,
-			y: -28
+			y: SHAPE_LABEL_Y_OFFSET
 		};
 	}
 	return { x: 0, y: 0 };

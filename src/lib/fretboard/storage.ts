@@ -137,21 +137,39 @@ export function importPresetsFromFile(
 	onError: (error: Error) => void
 ): void {
 	const reader = new FileReader();
+
+	reader.onerror = () => {
+		onError(new Error('Failed to read file'));
+	};
+
 	reader.onload = (e) => {
 		try {
-			const imported = JSON.parse(e.target?.result as string) as Record<string, Preset>;
+			const result = e.target?.result;
+			if (typeof result !== 'string') {
+				throw new Error('Invalid file content');
+			}
 
-			// Validate the imported data
+			const imported = JSON.parse(result) as Record<string, Preset>;
+
+			// Validate the imported data structure
+			if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+				throw new Error('Invalid preset file format: expected object');
+			}
+
 			for (const [name, preset] of Object.entries(imported)) {
-				if (typeof preset.selectedFrets !== 'object' || typeof preset.selectedKey !== 'string') {
+				if (!preset || typeof preset !== 'object') {
 					throw new Error(`Invalid preset format for "${name}"`);
+				}
+				if (typeof preset.selectedFrets !== 'object' || typeof preset.selectedKey !== 'string') {
+					throw new Error(`Invalid preset format for "${name}": missing required fields`);
 				}
 			}
 
 			onSuccess(imported);
 		} catch (err) {
-			onError(err as Error);
+			onError(err instanceof Error ? err : new Error(String(err)));
 		}
 	};
+
 	reader.readAsText(file);
 }

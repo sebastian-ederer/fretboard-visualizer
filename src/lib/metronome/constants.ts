@@ -7,6 +7,12 @@ export const DEFAULT_TEMPO = 120;
 export const TAP_TEMPO_WINDOW = 4; // Number of taps to average
 export const TAP_TIMEOUT = 2000; // Reset after 2s of no taps
 
+// Hold-to-repeat button behavior
+/** Delay (ms) before repeat starts when holding +/- buttons */
+export const HOLD_REPEAT_DELAY = 300;
+/** Interval (ms) between repeated adjustments when holding +/- buttons */
+export const HOLD_REPEAT_INTERVAL = 50;
+
 export const METRONOME_STORAGE_KEY = 'fretboard-metronome-state';
 
 // Auto tempo defaults

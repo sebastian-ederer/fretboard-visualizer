@@ -4,7 +4,10 @@
 		SINGLE_DOT_FRETS,
 		DOUBLE_DOT_FRETS,
 		STRING_THICKNESS_BASE,
-		STRING_THICKNESS_INCREMENT
+		STRING_THICKNESS_INCREMENT,
+		FRETBOARD_MIN_WIDTH,
+		TAP_THRESHOLD,
+		TOUCH_DEBOUNCE_MS
 	} from '$lib/fretboard/constants';
 	import { getNoteDisplay, isRootNote } from '$lib/fretboard/music-utils';
 	import { getComplementaryColor } from '$lib/fretboard/color-utils';
@@ -43,7 +46,6 @@
 	let touchStartX = 0;
 	let touchStartY = 0;
 	let touchTarget: { stringIndex: number; fretIndex: number } | null = null;
-	const TAP_THRESHOLD = 10; // Maximum movement in pixels to still count as a tap
 
 	function handleTouchStart(e: TouchEvent, stringIndex: number, fretIndex: number) {
 		lastTouchStartTime = performance.now();
@@ -75,7 +77,7 @@
 
 	function handleMouseDown(stringIndex: number, fretIndex: number) {
 		// Skip if this mousedown was triggered by a recent touch
-		if (performance.now() - lastTouchStartTime < 500) return;
+		if (performance.now() - lastTouchStartTime < TOUCH_DEBOUNCE_MS) return;
 		store.startPainting(stringIndex, fretIndex);
 	}
 
@@ -92,7 +94,7 @@
 	style="-webkit-overflow-scrolling: touch;"
 >
 	<!-- Inner wrapper with fixed width to ensure proper scrolling -->
-	<div bind:this={fretboardElement} class="relative isolate bg-background px-6 pb-6 pt-12" style="min-width: 1464px;">
+	<div bind:this={fretboardElement} class="relative isolate bg-background px-6 pb-6 pt-12" style="min-width: {FRETBOARD_MIN_WIDTH}px;">
 		<!-- Pentatonic shape overlays (only in standard tuning) -->
 		{#if s.showShapeBoxes && s.activeShapes.length > 0 && s.selectedTuningPreset === 'standard'}
 			<ShapeOverlay shapes={s.activeShapes} type="pentatonic" appliedIsMajor={s.appliedIsMajor} />

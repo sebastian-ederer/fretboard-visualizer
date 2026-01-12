@@ -1,35 +1,14 @@
 <script lang="ts">
 	import { fretboardStore } from '$lib/fretboard';
+	import {
+		CIRCLE_OF_FIFTHS_MAJOR,
+		CIRCLE_OF_FIFTHS_MINOR,
+		MAJOR_SCALE_CHORDS,
+		MINOR_SCALE_CHORDS
+	} from '$lib/fretboard/constants';
 	import { getDisplayNote, getNoteIndex } from '$lib/fretboard/music-utils';
 
 	const s = $derived(fretboardStore.state);
-
-	// Circle of Fifths order (clockwise from top)
-	const MAJOR_KEYS = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F'];
-	const MINOR_KEYS = ['A', 'E', 'B', 'F#', 'C#', 'G#', 'Eb', 'Bb', 'F', 'C', 'G', 'D'];
-
-	// Diatonic chord intervals (semitones from root) and their quality
-	// Major scale: I(M), ii(m), iii(m), IV(M), V(M), vi(m), vii°(dim)
-	const MAJOR_SCALE_CHORDS = [
-		{ interval: 0, quality: 'major' },   // I
-		{ interval: 2, quality: 'minor' },   // ii
-		{ interval: 4, quality: 'minor' },   // iii
-		{ interval: 5, quality: 'major' },   // IV
-		{ interval: 7, quality: 'major' },   // V
-		{ interval: 9, quality: 'minor' },   // vi
-		{ interval: 11, quality: 'dim' }     // vii°
-	];
-
-	// Natural minor scale: i(m), ii°(dim), III(M), iv(m), v(m), VI(M), VII(M)
-	const MINOR_SCALE_CHORDS = [
-		{ interval: 0, quality: 'minor' },   // i
-		{ interval: 2, quality: 'dim' },     // ii°
-		{ interval: 3, quality: 'major' },   // III
-		{ interval: 5, quality: 'minor' },   // iv
-		{ interval: 7, quality: 'minor' },   // v
-		{ interval: 8, quality: 'major' },   // VI
-		{ interval: 10, quality: 'major' }   // VII
-	];
 
 	// Get all diatonic chords for current key/mode
 	const diatonicChords = $derived.by(() => {
@@ -109,7 +88,7 @@
 		<circle cx={CENTER} cy={CENTER} r={OUTER_RADIUS + 5} fill="none" class="stroke-border/30" stroke-width="1" />
 
 		<!-- Outer ring (Major keys) -->
-		{#each MAJOR_KEYS as key, i}
+		{#each CIRCLE_OF_FIFTHS_MAJOR as key, i}
 			{@const pos = getPosition(i, LABEL_OUTER_RADIUS)}
 			{@const info = getDiatonicInfo(key, true)}
 
@@ -138,7 +117,7 @@
 		{/each}
 
 		<!-- Inner ring (Minor keys) -->
-		{#each MINOR_KEYS as key, i}
+		{#each CIRCLE_OF_FIFTHS_MINOR as key, i}
 			{@const pos = getPosition(i, LABEL_INNER_RADIUS)}
 			{@const info = getDiatonicInfo(key, false)}
 

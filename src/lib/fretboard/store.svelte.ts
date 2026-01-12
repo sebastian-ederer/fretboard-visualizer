@@ -260,6 +260,10 @@ function createFretboardStore() {
 	}
 
 	function changeStringTuning(stringIndex: number, direction: number) {
+		// Validate string index bounds
+		if (stringIndex < 0 || stringIndex >= state.strings.length) return;
+		if (!Number.isInteger(direction)) return;
+
 		const currentNote = state.strings[stringIndex];
 		const currentIdx = getNoteIndex(currentNote);
 		const newIdx = (currentIdx + direction + 12) % 12;
@@ -270,7 +274,13 @@ function createFretboardStore() {
 	}
 
 	function setStringNote(stringIndex: number, note: string) {
+		// Validate string index bounds
 		if (stringIndex < 0 || stringIndex >= state.strings.length) return;
+		// Validate note is a valid chromatic note
+		if (!note || typeof note !== 'string') return;
+		const noteIndex = getNoteIndex(note);
+		if (noteIndex < 0 || noteIndex > 11) return;
+
 		state.strings[stringIndex] = note;
 		state.strings = [...state.strings];
 		state.selectedTuningPreset = 'custom';
@@ -278,6 +288,8 @@ function createFretboardStore() {
 	}
 
 	function setStringCount(count: number) {
+		// Validate count is a valid number
+		if (!Number.isInteger(count)) return;
 		const newCount = Math.max(MIN_STRING_COUNT, Math.min(MAX_STRING_COUNT, count));
 		if (newCount === state.strings.length) return;
 
