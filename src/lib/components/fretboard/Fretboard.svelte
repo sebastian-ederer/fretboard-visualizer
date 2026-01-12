@@ -39,9 +39,38 @@
 	// Guard to prevent mousedown from firing after touchstart
 	let lastTouchStartTime = 0;
 
-	function handleTouchStart(stringIndex: number, fretIndex: number) {
+	// Touch tracking for tap detection (prevents accidental notes while scrolling)
+	let touchStartX = 0;
+	let touchStartY = 0;
+	let touchTarget: { stringIndex: number; fretIndex: number } | null = null;
+	const TAP_THRESHOLD = 10; // Maximum movement in pixels to still count as a tap
+
+	function handleTouchStart(e: TouchEvent, stringIndex: number, fretIndex: number) {
 		lastTouchStartTime = performance.now();
-		store.startPainting(stringIndex, fretIndex);
+		const touch = e.touches[0];
+		touchStartX = touch.clientX;
+		touchStartY = touch.clientY;
+		touchTarget = { stringIndex, fretIndex };
+	}
+
+	function handleTouchMove(e: TouchEvent) {
+		if (!touchTarget) return;
+		const touch = e.touches[0];
+		const deltaX = Math.abs(touch.clientX - touchStartX);
+		const deltaY = Math.abs(touch.clientY - touchStartY);
+		// If moved beyond threshold, cancel the tap (it's a scroll)
+		if (deltaX > TAP_THRESHOLD || deltaY > TAP_THRESHOLD) {
+			touchTarget = null;
+		}
+	}
+
+	function handleTouchEnd() {
+		// Only trigger if we still have a valid tap target (didn't scroll)
+		if (touchTarget) {
+			store.startPainting(touchTarget.stringIndex, touchTarget.fretIndex);
+			store.stopPainting();
+		}
+		touchTarget = null;
 	}
 
 	function handleMouseDown(stringIndex: number, fretIndex: number) {
@@ -115,7 +144,9 @@
 							aria-pressed={store.isSelected(stringIndex, fretIndex)}
 							onmousedown={() => handleMouseDown(stringIndex, fretIndex)}
 							onmouseenter={() => store.handlePaintOver(stringIndex, fretIndex)}
-							ontouchstart={() => handleTouchStart(stringIndex, fretIndex)}
+							ontouchstart={(e) => handleTouchStart(e, stringIndex, fretIndex)}
+							ontouchmove={handleTouchMove}
+							ontouchend={handleTouchEnd}
 						>
 							{#if store.isSelected(stringIndex, fretIndex)}
 								{@const noteColor = store.getNoteColor(stringIndex, fretIndex)}
