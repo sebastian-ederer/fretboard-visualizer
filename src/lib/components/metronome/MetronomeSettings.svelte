@@ -9,6 +9,38 @@
 
 	const m = $derived(metronomeStore.state);
 
+	// Beat unit options
+	const BEAT_UNITS = [1, 2, 4, 8, 16];
+
+	// Scroll handler factory
+	function createScrollHandler<T>(
+		getOptions: () => T[],
+		getValue: () => T,
+		setValue: (v: T) => void
+	) {
+		return (e: WheelEvent) => {
+			e.preventDefault();
+			const options = getOptions();
+			if (options.length === 0) return;
+			const idx = options.indexOf(getValue());
+			const newIdx = e.deltaY > 0 ? (idx + 1) % options.length : (idx - 1 + options.length) % options.length;
+			setValue(options[newIdx]);
+		};
+	}
+
+	// Scroll handlers for dropdowns
+	const handleBeatUnitScroll = createScrollHandler(
+		() => BEAT_UNITS,
+		() => m.beatUnit,
+		(v) => metronomeStore.setTimeSignature(m.beatsPerMeasure, v)
+	);
+
+	const handleClickSoundScroll = createScrollHandler(
+		() => CLICK_SOUNDS.map(s => s.value),
+		() => m.clickSound,
+		(v) => metronomeStore.setClickSound(v as typeof m.clickSound)
+	);
+
 	function handleTempoInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const value = parseInt(input.value);
@@ -142,7 +174,7 @@
 				value={m.beatUnit.toString()}
 				onValueChange={(v) => metronomeStore.setTimeSignature(m.beatsPerMeasure, parseInt(v))}
 			>
-				<Select.Trigger class="h-9 w-14" aria-label="Beat unit">
+				<Select.Trigger class="h-9 w-14" aria-label="Beat unit" onwheel={handleBeatUnitScroll}>
 					{m.beatUnit}
 				</Select.Trigger>
 				<Select.Content>
@@ -183,7 +215,7 @@
 			value={m.clickSound}
 			onValueChange={(v) => metronomeStore.setClickSound(v as typeof m.clickSound)}
 		>
-			<Select.Trigger class="w-full" aria-labelledby="click-sound-label">
+			<Select.Trigger class="w-full" aria-labelledby="click-sound-label" onwheel={handleClickSoundScroll}>
 				{CLICK_SOUNDS.find((s) => s.value === m.clickSound)?.label || m.clickSound}
 			</Select.Trigger>
 			<Select.Content>
