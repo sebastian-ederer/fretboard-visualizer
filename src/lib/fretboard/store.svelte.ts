@@ -13,7 +13,8 @@ import {
 	getStringBaseNotes,
 	getNoteIndex,
 	getScaleNotes,
-	getChromaticScale
+	getChromaticScale,
+	getChordNotes
 } from './music-utils';
 import { calculatePentatonicShapes, calculate3NPSShapes } from './shape-utils';
 import { loadState, saveState, loadPresets, savePresets, loadHistory, saveHistory } from './storage';
@@ -71,7 +72,10 @@ function createFretboardStore() {
 		isUndoRedoAction: false,
 
 		// Loading state
-		isLoaded: false
+		isLoaded: false,
+
+		// Temporary highlight state (not persisted)
+		highlightedNotes: {} as Record<string, string> // key: "stringIndex-fretIndex", value: color
 	});
 
 	// Debounce timer (not reactive)
@@ -256,6 +260,7 @@ function createFretboardStore() {
 
 		state.selectedTuningPreset = presetKey;
 		state.strings = [...preset];
+		recalculateShapes();
 		pushHistory(true);
 	}
 
@@ -393,6 +398,40 @@ function createFretboardStore() {
 
 		state.selectedFrets = { ...state.selectedFrets };
 		pushHistory(true);
+	}
+
+	// Highlight chord notes on the fretboard (temporary, non-persisted)
+	function highlightChordNotes(root: string, quality: 'major' | 'minor' | 'dim', color: string) {
+		const chordNotes = getChordNotes(root, quality);
+		if (chordNotes.size === 0) return;
+
+		// Clear existing highlights
+		const newHighlights: Record<string, string> = {};
+
+		// Set highlights for all occurrences of chord notes
+		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
+			const frets = getScaleFrets(stringBaseNotes[stringIndex], chordNotes);
+			for (const fretIndex of frets) {
+				newHighlights[`${stringIndex}-${fretIndex}`] = color;
+			}
+		}
+
+		state.highlightedNotes = newHighlights;
+	}
+
+	// Clear all highlights
+	function clearHighlights() {
+		state.highlightedNotes = {};
+	}
+
+	// Check if a note is highlighted
+	function isHighlighted(stringIndex: number, fretIndex: number): boolean {
+		return !!state.highlightedNotes[`${stringIndex}-${fretIndex}`];
+	}
+
+	// Get highlight color for a note
+	function getHighlightColor(stringIndex: number, fretIndex: number): string | null {
+		return state.highlightedNotes[`${stringIndex}-${fretIndex}`] || null;
 	}
 
 	// Clear functions
@@ -638,6 +677,10 @@ function createFretboardStore() {
 		loadPreset,
 		deletePreset,
 		recalculateShapes,
+		highlightChordNotes,
+		clearHighlights,
+		isHighlighted,
+		getHighlightColor,
 		setFretboardElement,
 		exportAsPng,
 		exportAsSvg

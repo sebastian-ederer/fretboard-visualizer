@@ -139,7 +139,7 @@
 					>
 						<!-- Circular hit area for painting -->
 						<button
-							class="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
+							class="relative flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
 							data-string={stringIndex}
 							data-fret={fretIndex}
 							aria-label={getAriaLabel(stringIndex, fretIndex)}
@@ -150,6 +150,19 @@
 							ontouchmove={handleTouchMove}
 							ontouchend={handleTouchEnd}
 						>
+							<!-- Highlight ring (shows when chord notes are highlighted) -->
+							{#if store.isHighlighted(stringIndex, fretIndex)}
+								{@const highlightColor = store.getHighlightColor(stringIndex, fretIndex)}
+								<div
+									class="pointer-events-none absolute inset-0 flex items-center justify-center"
+								>
+									<div
+										class="h-8 w-8 animate-pulse rounded-full border-[3px]"
+										style="border-color: {highlightColor}; box-shadow: 0 0 8px {highlightColor};"
+									></div>
+								</div>
+							{/if}
+
 							{#if store.isSelected(stringIndex, fretIndex)}
 								{@const noteColor = store.getNoteColor(stringIndex, fretIndex)}
 								{@const inShape = checkNoteIn3NPSShape(stringIndex, fretIndex)}

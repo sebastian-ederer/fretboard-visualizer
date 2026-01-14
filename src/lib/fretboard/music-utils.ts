@@ -147,3 +147,24 @@ export function isRootNote(
 	const rootIndex = getNoteIndex(selectedKey);
 	return noteIndex === rootIndex;
 }
+
+/**
+ * Get the notes of a chord (triad) based on root and quality
+ * @param root - The root note of the chord
+ * @param quality - 'major', 'minor', or 'dim'
+ * @returns Set of note indices (0-11)
+ */
+export function getChordNotes(root: string, quality: 'major' | 'minor' | 'dim'): Set<number> {
+	const rootIndex = getNoteIndex(root);
+	if (rootIndex === -1) return new Set();
+
+	// Intervals for each chord quality (in semitones from root)
+	const intervals: Record<string, number[]> = {
+		major: [0, 4, 7], // root, major 3rd, perfect 5th
+		minor: [0, 3, 7], // root, minor 3rd, perfect 5th
+		dim: [0, 3, 6] // root, minor 3rd, diminished 5th
+	};
+
+	const chordIntervals = intervals[quality] || intervals.major;
+	return new Set(chordIntervals.map((interval) => (rootIndex + interval) % 12));
+}
