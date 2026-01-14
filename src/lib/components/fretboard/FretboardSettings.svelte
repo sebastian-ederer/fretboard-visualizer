@@ -14,13 +14,16 @@
 		TUNING_PRESET_NAMES,
 		TUNING_PRESETS,
 		SCALE_OPTIONS,
+		SCALE_VALUES,
 		REMOVE_SCALE_OPTIONS,
+		REMOVE_SCALE_VALUES,
 		THREE_NPS_OPTIONS,
 		MIN_STRING_COUNT,
 		MAX_STRING_COUNT
 	} from '$lib/fretboard/constants';
 	import { getDisplayNote, getNoteIndex, getChromaticScale } from '$lib/fretboard/music-utils';
 	import { exportPresetsToFile, importPresetsFromFile, savePresets } from '$lib/fretboard/storage';
+	import { createScrollHandler, handleArrowKeys } from '$lib/utils/scroll-handler';
 	import type { fretboardStore as FretboardStoreType } from '$lib/fretboard/store.svelte';
 
 	interface Props {
@@ -37,46 +40,6 @@
 	const chromaticScale = $derived(getChromaticScale(s.useFlats));
 	const tuningPresetKeys = Object.keys(TUNING_PRESETS);
 
-	// Generic keyboard handler for cycling through options
-	function handleArrowKeys<T>(
-		e: KeyboardEvent,
-		options: T[],
-		getCurrentValue: () => T,
-		setValue: (value: T) => void,
-		onAfterChange?: () => void
-	) {
-		if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-		e.preventDefault();
-		const currentValue = getCurrentValue();
-		const idx = options.indexOf(currentValue);
-		const newIdx =
-			e.key === 'ArrowDown'
-				? (idx + 1) % options.length
-				: (idx - 1 + options.length) % options.length;
-		setValue(options[newIdx]);
-		onAfterChange?.();
-	}
-
-	// Generic scroll handler factory
-	function createScrollHandler<T>(
-		getOptions: () => T[],
-		getValue: () => T,
-		setValue: (v: T) => void,
-		onAfter?: () => void
-	) {
-		return (e: WheelEvent) => {
-			e.preventDefault();
-			const options = getOptions();
-			if (options.length === 0) return;
-			const idx = options.indexOf(getValue());
-			const newIdx = e.deltaY > 0
-				? (idx + 1) % options.length
-				: (idx - 1 + options.length) % options.length;
-			setValue(options[newIdx]);
-			onAfter?.();
-		};
-	}
-
 	// Scroll handlers using the factory
 	const scrollKey = createScrollHandler(
 		() => chromaticScale,
@@ -85,13 +48,13 @@
 	);
 
 	const scrollScale = createScrollHandler(
-		() => SCALE_OPTIONS,
+		() => SCALE_VALUES,
 		() => s.selectedScale,
 		(v) => (s.selectedScale = v)
 	);
 
 	const scrollRemoveScale = createScrollHandler(
-		() => REMOVE_SCALE_OPTIONS,
+		() => REMOVE_SCALE_VALUES,
 		() => s.scaleToRemove,
 		(v) => (s.scaleToRemove = v)
 	);
@@ -387,7 +350,7 @@
 						<Select.Trigger
 							class="h-9 flex-1"
 							onwheel={scrollScale}
-							onkeydown={(e) => handleArrowKeys(e, SCALE_OPTIONS, () => s.selectedScale, (v) => (s.selectedScale = v))}
+							onkeydown={(e) => handleArrowKeys(e, SCALE_VALUES, () => s.selectedScale, (v) => (s.selectedScale = v))}
 							aria-labelledby="scale-select-label"
 						>
 							{#if s.selectedScale === 'melodic-minor'}
@@ -436,7 +399,7 @@
 						<Select.Trigger
 							class="h-9 flex-1"
 							onwheel={scrollRemoveScale}
-							onkeydown={(e) => handleArrowKeys(e, REMOVE_SCALE_OPTIONS, () => s.scaleToRemove, (v) => (s.scaleToRemove = v))}
+							onkeydown={(e) => handleArrowKeys(e, REMOVE_SCALE_VALUES, () => s.scaleToRemove, (v) => (s.scaleToRemove = v))}
 							aria-labelledby="remove-scale-label"
 						>
 							{#if s.scaleToRemove === '3nps'}

@@ -14,7 +14,8 @@ import {
 	getNoteIndex,
 	getScaleNotes,
 	getChromaticScale,
-	getChordNotes
+	getChordNotes,
+	createFretKey
 } from './music-utils';
 import { calculatePentatonicShapes, calculate3NPSShapes } from './shape-utils';
 import { loadState, saveState, loadPresets, savePresets, loadHistory, saveHistory } from './storage';
@@ -315,7 +316,7 @@ function createFretboardStore() {
 			// Remove strings from the bottom and clean up their frets
 			for (let stringIndex = newCount; stringIndex < currentCount; stringIndex++) {
 				for (let fret = 0; fret <= FRET_COUNT; fret++) {
-					delete state.selectedFrets[`${stringIndex}-${fret}`];
+					delete state.selectedFrets[createFretKey(stringIndex, fret)];
 				}
 			}
 			state.strings = state.strings.slice(0, newCount);
@@ -360,7 +361,7 @@ function createFretboardStore() {
 		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
 			const frets = getScaleFrets(stringBaseNotes[stringIndex], scaleNotes);
 			for (const fretIndex of frets) {
-				const key = `${stringIndex}-${fretIndex}`;
+				const key = createFretKey(stringIndex, fretIndex);
 				if (!state.selectedFrets[key]) {
 					state.selectedFrets[key] = state.selectedColor;
 				}
@@ -392,7 +393,7 @@ function createFretboardStore() {
 		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
 			const frets = getScaleFrets(stringBaseNotes[stringIndex], extraNotes);
 			for (const fretIndex of frets) {
-				delete state.selectedFrets[`${stringIndex}-${fretIndex}`];
+				delete state.selectedFrets[createFretKey(stringIndex, fretIndex)];
 			}
 		}
 
@@ -412,7 +413,7 @@ function createFretboardStore() {
 		for (let stringIndex = 0; stringIndex < state.strings.length; stringIndex++) {
 			const frets = getScaleFrets(stringBaseNotes[stringIndex], chordNotes);
 			for (const fretIndex of frets) {
-				newHighlights[`${stringIndex}-${fretIndex}`] = color;
+				newHighlights[createFretKey(stringIndex, fretIndex)] = color;
 			}
 		}
 
@@ -426,12 +427,12 @@ function createFretboardStore() {
 
 	// Check if a note is highlighted
 	function isHighlighted(stringIndex: number, fretIndex: number): boolean {
-		return !!state.highlightedNotes[`${stringIndex}-${fretIndex}`];
+		return !!state.highlightedNotes[createFretKey(stringIndex, fretIndex)];
 	}
 
 	// Get highlight color for a note
 	function getHighlightColor(stringIndex: number, fretIndex: number): string | null {
-		return state.highlightedNotes[`${stringIndex}-${fretIndex}`] || null;
+		return state.highlightedNotes[createFretKey(stringIndex, fretIndex)] || null;
 	}
 
 	// Clear functions
@@ -458,16 +459,16 @@ function createFretboardStore() {
 
 	// Painting functions
 	function isSelected(stringIndex: number, fretIndex: number): boolean {
-		return !!state.selectedFrets[`${stringIndex}-${fretIndex}`];
+		return !!state.selectedFrets[createFretKey(stringIndex, fretIndex)];
 	}
 
 	function getNoteColor(stringIndex: number, fretIndex: number): string {
-		return state.selectedFrets[`${stringIndex}-${fretIndex}`] || state.selectedColor;
+		return state.selectedFrets[createFretKey(stringIndex, fretIndex)] || state.selectedColor;
 	}
 
 	function startPainting(stringIndex: number, fretIndex: number) {
 		state.isPainting = true;
-		const key = `${stringIndex}-${fretIndex}`;
+		const key = createFretKey(stringIndex, fretIndex);
 		const existingColor = state.selectedFrets[key];
 		// Only remove if note exists AND has the same color as selected
 		// Otherwise, paint (add or repaint with new color)
@@ -483,7 +484,7 @@ function createFretboardStore() {
 	}
 
 	function applyPaint(stringIndex: number, fretIndex: number) {
-		const key = `${stringIndex}-${fretIndex}`;
+		const key = createFretKey(stringIndex, fretIndex);
 		if (state.paintMode === 'add') {
 			state.selectedFrets[key] = state.selectedColor;
 		} else {

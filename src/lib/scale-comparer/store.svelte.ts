@@ -1,20 +1,9 @@
-import { FRET_COUNT } from '$lib/fretboard/constants';
-import { getScaleNotes, getStringBaseNotes } from '$lib/fretboard/music-utils';
+import { SCALE_OPTIONS } from '$lib/fretboard/constants';
+import { getScaleNotes, getStringBaseNotes, getScaleFrets, createFretKey } from '$lib/fretboard/music-utils';
 import { fretboardStore } from '$lib/fretboard';
 
-// Scale options for dropdowns
-export const SCALE_OPTIONS = [
-	{ value: 'pentatonic', label: 'Pentatonic' },
-	{ value: 'blues', label: 'Blues' },
-	{ value: 'ionian', label: 'Ionian (Major)' },
-	{ value: 'dorian', label: 'Dorian' },
-	{ value: 'phrygian', label: 'Phrygian' },
-	{ value: 'lydian', label: 'Lydian' },
-	{ value: 'mixolydian', label: 'Mixolydian' },
-	{ value: 'aeolian', label: 'Aeolian (Natural Minor)' },
-	{ value: 'locrian', label: 'Locrian' },
-	{ value: 'melodic-minor', label: 'Melodic Minor' }
-] as const;
+// Re-export for convenience
+export { SCALE_OPTIONS };
 
 // Default colors that are distinct from each other
 const DEFAULT_PRIMARY_COLOR = '#0891b2'; // cyan
@@ -48,23 +37,11 @@ function createScaleComparerStore() {
 		const stringBaseNotes = getStringBaseNotes(fs.strings);
 		const notes: Record<string, { primary: boolean; secondary: boolean; color: string }> = {};
 
-		// Helper to get all fret positions for a scale on a string
-		function getScaleFrets(stringBase: number, scaleNotes: Set<number>): number[] {
-			const frets: number[] = [];
-			for (const note of scaleNotes) {
-				const baseFret = (note - stringBase + 12) % 12;
-				for (let fret = baseFret; fret <= FRET_COUNT; fret += 12) {
-					frets.push(fret);
-				}
-			}
-			return frets;
-		}
-
 		// Add primary scale notes
 		for (let stringIndex = 0; stringIndex < fs.strings.length; stringIndex++) {
 			const frets = getScaleFrets(stringBaseNotes[stringIndex], primaryScaleNotes);
 			for (const fret of frets) {
-				const key = `${stringIndex}-${fret}`;
+				const key = createFretKey(stringIndex, fret);
 				notes[key] = { primary: true, secondary: false, color: state.primaryColor };
 			}
 		}
@@ -73,7 +50,7 @@ function createScaleComparerStore() {
 		for (let stringIndex = 0; stringIndex < fs.strings.length; stringIndex++) {
 			const frets = getScaleFrets(stringBaseNotes[stringIndex], secondaryScaleNotes);
 			for (const fret of frets) {
-				const key = `${stringIndex}-${fret}`;
+				const key = createFretKey(stringIndex, fret);
 				if (notes[key]) {
 					// Note exists in both scales
 					notes[key].secondary = true;

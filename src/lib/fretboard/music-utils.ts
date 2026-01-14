@@ -2,8 +2,28 @@ import {
 	CHROMATIC_SCALE_SHARP,
 	CHROMATIC_SCALE_FLAT,
 	INTERVAL_NAMES,
-	SCALE_INTERVALS
+	SCALE_INTERVALS,
+	FRET_COUNT
 } from './constants';
+
+/**
+ * Create a unique key for a fret position (used for state lookups)
+ */
+export function createFretKey(stringIndex: number, fretIndex: number): string {
+	return `${stringIndex}-${fretIndex}`;
+}
+
+/**
+ * Parse a fret key back into string and fret indices
+ */
+export function parseFretKey(key: string): { stringIndex: number; fretIndex: number } | null {
+	const parts = key.split('-');
+	if (parts.length !== 2) return null;
+	const stringIndex = parseInt(parts[0]);
+	const fretIndex = parseInt(parts[1]);
+	if (isNaN(stringIndex) || isNaN(fretIndex)) return null;
+	return { stringIndex, fretIndex };
+}
 
 /**
  * Get the chromatic scale based on notation preference
@@ -91,6 +111,23 @@ export function getScaleNotes(key: string, isMajor: boolean, scale: string): Set
 	const keyIndex = getNoteIndex(key);
 	const intervals = SCALE_INTERVALS[scale]?.[isMajor ? 'major' : 'minor'] || [];
 	return new Set(intervals.map((interval) => (keyIndex + interval) % 12));
+}
+
+/**
+ * Get all fret positions where scale notes appear on a string
+ * @param stringBase - The base note index of the string (0-11)
+ * @param scaleNotes - Set of note indices in the scale
+ * @returns Array of fret positions
+ */
+export function getScaleFrets(stringBase: number, scaleNotes: Set<number>): number[] {
+	const frets: number[] = [];
+	for (const note of scaleNotes) {
+		const baseFret = (note - stringBase + 12) % 12;
+		for (let fret = baseFret; fret <= FRET_COUNT; fret += 12) {
+			frets.push(fret);
+		}
+	}
+	return frets;
 }
 
 /**

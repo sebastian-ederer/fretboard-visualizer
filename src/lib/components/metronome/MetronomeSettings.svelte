@@ -3,6 +3,8 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
 	import { Button } from '$lib/components/ui/button';
+	import { createScrollHandler } from '$lib/utils/scroll-handler';
+	import { createHoldRepeat } from '$lib/utils/hold-repeat';
 	import Minus from '@lucide/svelte/icons/minus';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Hand from '@lucide/svelte/icons/hand';
@@ -11,22 +13,6 @@
 
 	// Beat unit options
 	const BEAT_UNITS = [1, 2, 4, 8, 16];
-
-	// Scroll handler factory
-	function createScrollHandler<T>(
-		getOptions: () => T[],
-		getValue: () => T,
-		setValue: (v: T) => void
-	) {
-		return (e: WheelEvent) => {
-			e.preventDefault();
-			const options = getOptions();
-			if (options.length === 0) return;
-			const idx = options.indexOf(getValue());
-			const newIdx = e.deltaY > 0 ? (idx + 1) % options.length : (idx - 1 + options.length) % options.length;
-			setValue(options[newIdx]);
-		};
-	}
 
 	// Scroll handlers for dropdowns
 	const handleBeatUnitScroll = createScrollHandler(
@@ -66,28 +52,10 @@
 	}
 
 	// Hold-to-repeat for tempo buttons
-	let holdInterval: number | null = null;
-	let holdTimeout: number | null = null;
-
-	function startHold(delta: number) {
-		metronomeStore.adjustTempo(delta);
-		holdTimeout = window.setTimeout(() => {
-			holdInterval = window.setInterval(() => {
-				metronomeStore.adjustTempo(delta);
-			}, HOLD_REPEAT_INTERVAL);
-		}, HOLD_REPEAT_DELAY);
-	}
-
-	function stopHold() {
-		if (holdTimeout) {
-			clearTimeout(holdTimeout);
-			holdTimeout = null;
-		}
-		if (holdInterval) {
-			clearInterval(holdInterval);
-			holdInterval = null;
-		}
-	}
+	const tempoHold = createHoldRepeat(
+		(delta: number) => metronomeStore.adjustTempo(delta),
+		{ delay: HOLD_REPEAT_DELAY, interval: HOLD_REPEAT_INTERVAL }
+	);
 </script>
 
 <div class="space-y-6">
@@ -99,11 +67,11 @@
 				variant="outline"
 				size="sm"
 				class="h-8 w-8 p-0"
-				onmousedown={() => startHold(-1)}
-				onmouseup={stopHold}
-				onmouseleave={stopHold}
-				ontouchstart={() => startHold(-1)}
-				ontouchend={stopHold}
+				onmousedown={() => tempoHold.start(-1)}
+				onmouseup={tempoHold.stop}
+				onmouseleave={tempoHold.stop}
+				ontouchstart={() => tempoHold.start(-1)}
+				ontouchend={tempoHold.stop}
 			>
 				<Minus class="h-3 w-3" />
 			</Button>
@@ -121,11 +89,11 @@
 				variant="outline"
 				size="sm"
 				class="h-8 w-8 p-0"
-				onmousedown={() => startHold(1)}
-				onmouseup={stopHold}
-				onmouseleave={stopHold}
-				ontouchstart={() => startHold(1)}
-				ontouchend={stopHold}
+				onmousedown={() => tempoHold.start(1)}
+				onmouseup={tempoHold.stop}
+				onmouseleave={tempoHold.stop}
+				ontouchstart={() => tempoHold.start(1)}
+				ontouchend={tempoHold.stop}
 			>
 				<Plus class="h-3 w-3" />
 			</Button>

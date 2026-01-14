@@ -7,6 +7,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
 	import { Switch } from '$lib/components/ui/switch';
+	import { createScrollHandler } from '$lib/utils/scroll-handler';
 	import { CHROMATIC_SCALE_SHARP, THREE_NPS_OPTIONS } from '$lib/fretboard/constants';
 	import Music from '@lucide/svelte/icons/music';
 	import Timer from '@lucide/svelte/icons/timer';
@@ -29,22 +30,6 @@
 		{ value: '#0284c7', label: 'Sky' },
 		{ value: '#7c2d12', label: 'Brown' }
 	];
-
-	// Scroll handler factory
-	function createScrollHandler<T>(
-		getOptions: () => T[],
-		getValue: () => T,
-		setValue: (v: T) => void
-	) {
-		return (e: WheelEvent) => {
-			e.preventDefault();
-			const options = getOptions();
-			if (options.length === 0) return;
-			const idx = options.indexOf(getValue());
-			const newIdx = e.deltaY > 0 ? (idx + 1) % options.length : (idx - 1 + options.length) % options.length;
-			setValue(options[newIdx]);
-		};
-	}
 
 	// Scroll handlers for dropdowns
 	const handleKeyScroll = createScrollHandler(

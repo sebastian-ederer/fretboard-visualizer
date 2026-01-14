@@ -121,32 +121,38 @@ export const TUNING_PRESET_NAMES: Record<string, string> = {
 	custom: 'Custom'
 };
 
-// Scale options for UI
+// Scale options for UI with display labels
 export const SCALE_OPTIONS = [
-	'pentatonic',
-	'blues',
-	'ionian',
-	'dorian',
-	'phrygian',
-	'lydian',
-	'mixolydian',
-	'aeolian',
-	'locrian',
-	'melodic-minor',
-	'diatonic'
-];
+	{ value: 'pentatonic', label: 'Pentatonic' },
+	{ value: 'blues', label: 'Blues' },
+	{ value: 'ionian', label: 'Ionian (Major)' },
+	{ value: 'dorian', label: 'Dorian' },
+	{ value: 'phrygian', label: 'Phrygian' },
+	{ value: 'lydian', label: 'Lydian' },
+	{ value: 'mixolydian', label: 'Mixolydian' },
+	{ value: 'aeolian', label: 'Aeolian (Natural Minor)' },
+	{ value: 'locrian', label: 'Locrian' },
+	{ value: 'melodic-minor', label: 'Melodic Minor' },
+	{ value: 'diatonic', label: 'Diatonic' }
+] as const;
+
+// Scale values only (derived from SCALE_OPTIONS for backwards compatibility)
+export const SCALE_VALUES = SCALE_OPTIONS.map((s) => s.value);
 
 export const REMOVE_SCALE_OPTIONS = [
-	'blues',
-	'ionian',
-	'dorian',
-	'phrygian',
-	'lydian',
-	'mixolydian',
-	'aeolian',
-	'locrian',
-	'melodic-minor'
-];
+	{ value: 'blues', label: 'Blues' },
+	{ value: 'ionian', label: 'Ionian (Major)' },
+	{ value: 'dorian', label: 'Dorian' },
+	{ value: 'phrygian', label: 'Phrygian' },
+	{ value: 'lydian', label: 'Lydian' },
+	{ value: 'mixolydian', label: 'Mixolydian' },
+	{ value: 'aeolian', label: 'Aeolian (Natural Minor)' },
+	{ value: 'locrian', label: 'Locrian' },
+	{ value: 'melodic-minor', label: 'Melodic Minor' }
+] as const;
+
+// Remove scale values only (derived)
+export const REMOVE_SCALE_VALUES = REMOVE_SCALE_OPTIONS.map((s) => s.value);
 
 export const THREE_NPS_OPTIONS = ['1', '2', '3', '4', '5', '6', '7'];
 

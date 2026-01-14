@@ -7,7 +7,7 @@
 		STRING_THICKNESS_INCREMENT,
 		FRETBOARD_MIN_WIDTH
 	} from '$lib/fretboard/constants';
-	import { getNoteDisplay, isRootNote, getStringBaseNotes } from '$lib/fretboard/music-utils';
+	import { getNoteDisplay, isRootNote, getStringBaseNotes, createFretKey } from '$lib/fretboard/music-utils';
 	import { fretboardStore } from '$lib/fretboard';
 	import { scaleComparerStore } from '$lib/scale-comparer';
 	import { ShapeOverlay } from '$lib/components/fretboard';
@@ -28,8 +28,7 @@
 	}
 
 	function getNoteInfo(stringIndex: number, fretIndex: number) {
-		const key = `${stringIndex}-${fretIndex}`;
-		return displayNotes[key] || null;
+		return displayNotes[createFretKey(stringIndex, fretIndex)] || null;
 	}
 
 	// Check if note is highlighted from Circle of Fifths chord click

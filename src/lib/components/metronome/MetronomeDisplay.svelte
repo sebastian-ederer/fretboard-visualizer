@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { metronomeStore } from '$lib/metronome';
 	import { Button } from '$lib/components/ui/button';
+	import { createHoldRepeat } from '$lib/utils/hold-repeat';
 	import Play from '@lucide/svelte/icons/play';
 	import Pause from '@lucide/svelte/icons/pause';
 	import Minus from '@lucide/svelte/icons/minus';
@@ -14,28 +15,7 @@
 	}
 
 	// Hold-to-repeat for tempo buttons
-	let holdInterval: number | null = null;
-	let holdTimeout: number | null = null;
-
-	function startHold(delta: number) {
-		metronomeStore.adjustTempo(delta);
-		holdTimeout = window.setTimeout(() => {
-			holdInterval = window.setInterval(() => {
-				metronomeStore.adjustTempo(delta);
-			}, 50);
-		}, 300);
-	}
-
-	function stopHold() {
-		if (holdTimeout) {
-			clearTimeout(holdTimeout);
-			holdTimeout = null;
-		}
-		if (holdInterval) {
-			clearInterval(holdInterval);
-			holdInterval = null;
-		}
-	}
+	const tempoHold = createHoldRepeat((delta: number) => metronomeStore.adjustTempo(delta));
 </script>
 
 <div class="flex flex-col items-center rounded-lg border border-border/50 bg-card/50 p-2 sm:p-4">
@@ -69,11 +49,11 @@
 			variant="ghost"
 			size="sm"
 			class="h-6 w-6 p-0 sm:h-8 sm:w-8"
-			onmousedown={() => startHold(-5)}
-			onmouseup={stopHold}
-			onmouseleave={stopHold}
-			ontouchstart={() => startHold(-5)}
-			ontouchend={stopHold}
+			onmousedown={() => tempoHold.start(-5)}
+			onmouseup={tempoHold.stop}
+			onmouseleave={tempoHold.stop}
+			ontouchstart={() => tempoHold.start(-5)}
+			ontouchend={tempoHold.stop}
 			aria-label="Decrease tempo by 5"
 		>
 			<Minus class="h-3 w-3 sm:h-4 sm:w-4" />
@@ -88,11 +68,11 @@
 			variant="ghost"
 			size="sm"
 			class="h-6 w-6 p-0 sm:h-8 sm:w-8"
-			onmousedown={() => startHold(5)}
-			onmouseup={stopHold}
-			onmouseleave={stopHold}
-			ontouchstart={() => startHold(5)}
-			ontouchend={stopHold}
+			onmousedown={() => tempoHold.start(5)}
+			onmouseup={tempoHold.stop}
+			onmouseleave={tempoHold.stop}
+			ontouchstart={() => tempoHold.start(5)}
+			ontouchend={tempoHold.stop}
 			aria-label="Increase tempo by 5"
 		>
 			<Plus class="h-3 w-3 sm:h-4 sm:w-4" />
