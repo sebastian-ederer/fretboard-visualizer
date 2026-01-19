@@ -360,6 +360,20 @@ export const PRESET_COLORS = [
 	'#ef4444' // Red
 ];
 
+// Color options with labels (for scale comparer and other UI)
+export const COLOR_OPTIONS = [
+	{ value: '#0891b2', label: 'Cyan' },
+	{ value: '#7c3aed', label: 'Violet' },
+	{ value: '#0d9488', label: 'Teal' },
+	{ value: '#65a30d', label: 'Lime' },
+	{ value: '#ca8a04', label: 'Gold' },
+	{ value: '#db2777', label: 'Pink' },
+	{ value: '#be123c', label: 'Rose' },
+	{ value: '#059669', label: 'Emerald' },
+	{ value: '#0284c7', label: 'Sky' },
+	{ value: '#7c2d12', label: 'Brown' }
+] as const;
+
 // Storage keys
 export const STORAGE_KEY = 'fretboard-visualizer-state';
 export const PRESETS_KEY = 'fretboard-visualizer-presets';

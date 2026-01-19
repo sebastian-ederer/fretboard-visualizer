@@ -13,12 +13,14 @@ import {
 	getStringBaseNotes,
 	getNoteIndex,
 	getScaleNotes,
+	getScaleFrets,
 	getChromaticScale,
 	getChordNotes,
 	createFretKey
 } from './music-utils';
 import { calculatePentatonicShapes, calculate3NPSShapes } from './shape-utils';
 import { loadState, saveState, loadPresets, savePresets, loadHistory, saveHistory } from './storage';
+import { exportAsPng as exportPng, exportAsSvg as exportSvg } from './export';
 
 // Create a singleton store for the fretboard state
 function createFretboardStore() {
@@ -43,6 +45,8 @@ function createFretboardStore() {
 		showIntervals: false,
 		useFlats: false,
 		eraseSelectedColorOnly: false,
+		highlightRootNotes: true,
+		rootNoteHighlightColor: '#dc2626',
 
 		// Color settings
 		selectedColor: PRESET_COLORS[0],
@@ -104,6 +108,8 @@ function createFretboardStore() {
 			showIntervals: state.showIntervals,
 			useFlats: state.useFlats,
 			eraseSelectedColorOnly: state.eraseSelectedColorOnly,
+			highlightRootNotes: state.highlightRootNotes,
+			rootNoteHighlightColor: state.rootNoteHighlightColor,
 			lastAppliedScale: state.lastAppliedScale,
 			scaleToRemove: state.scaleToRemove,
 			strings: [...state.strings],
@@ -127,6 +133,8 @@ function createFretboardStore() {
 			a.showIntervals !== b.showIntervals ||
 			a.useFlats !== b.useFlats ||
 			a.eraseSelectedColorOnly !== b.eraseSelectedColorOnly ||
+			a.highlightRootNotes !== b.highlightRootNotes ||
+			a.rootNoteHighlightColor !== b.rootNoteHighlightColor ||
 			a.lastAppliedScale !== b.lastAppliedScale ||
 			a.scaleToRemove !== b.scaleToRemove ||
 			a.selectedTuningPreset !== b.selectedTuningPreset
@@ -200,6 +208,8 @@ function createFretboardStore() {
 		state.showIntervals = snapshot.showIntervals;
 		state.useFlats = snapshot.useFlats ?? false;
 		state.eraseSelectedColorOnly = snapshot.eraseSelectedColorOnly;
+		state.highlightRootNotes = snapshot.highlightRootNotes ?? true;
+		state.rootNoteHighlightColor = snapshot.rootNoteHighlightColor ?? '#dc2626';
 		state.lastAppliedScale = snapshot.lastAppliedScale;
 		state.scaleToRemove = snapshot.scaleToRemove;
 		state.strings = snapshot.strings ? [...snapshot.strings] : ['E', 'B', 'G', 'D', 'A', 'E'];
@@ -325,20 +335,6 @@ function createFretboardStore() {
 
 		state.selectedTuningPreset = 'custom';
 		pushHistory(true);
-	}
-
-	// Get fret positions for scale notes on a string (more efficient than iterating all frets)
-	function getScaleFrets(stringBase: number, scaleNotes: Set<number>): number[] {
-		const frets: number[] = [];
-		for (const note of scaleNotes) {
-			// Calculate base fret where this note appears (0-11)
-			const baseFret = (note - stringBase + 12) % 12;
-			// Add all octaves that fit on the fretboard
-			for (let fret = baseFret; fret <= FRET_COUNT; fret += 12) {
-				frets.push(fret);
-			}
-		}
-		return frets;
 	}
 
 	// Apply scale to fretboard
@@ -597,49 +593,12 @@ function createFretboardStore() {
 		fretboardElement = element;
 	}
 
-	function downloadFile(dataUrl: string, filename: string) {
-		const link = document.createElement('a');
-		link.download = filename;
-		link.href = dataUrl;
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
-	}
-
-	// Lazy-load html-to-image once and cache
-	let htmlToImageModule: typeof import('html-to-image') | null = null;
-	async function getHtmlToImage() {
-		if (!htmlToImageModule) {
-			htmlToImageModule = await import('html-to-image');
-		}
-		return htmlToImageModule;
-	}
-
 	async function exportAsPng() {
-		if (!fretboardElement) return;
-		try {
-			const { toPng } = await getHtmlToImage();
-			const dataUrl = await toPng(fretboardElement, {
-				backgroundColor: '#09090b',
-				pixelRatio: 2
-			});
-			downloadFile(dataUrl, 'fretboard.png');
-		} catch (err) {
-			console.error('Failed to export PNG:', err);
-		}
+		await exportPng(fretboardElement);
 	}
 
 	async function exportAsSvg() {
-		if (!fretboardElement) return;
-		try {
-			const { toSvg } = await getHtmlToImage();
-			const dataUrl = await toSvg(fretboardElement, {
-				backgroundColor: '#09090b'
-			});
-			downloadFile(dataUrl, 'fretboard.svg');
-		} catch (err) {
-			console.error('Failed to export SVG:', err);
-		}
+		await exportSvg(fretboardElement);
 	}
 
 	return {

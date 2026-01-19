@@ -14,6 +14,8 @@ export interface HistoryState {
 	showIntervals: boolean;
 	useFlats: boolean;
 	eraseSelectedColorOnly: boolean;
+	highlightRootNotes: boolean;
+	rootNoteHighlightColor: string;
 	lastAppliedScale: string | null;
 	scaleToRemove: string;
 	strings: string[];

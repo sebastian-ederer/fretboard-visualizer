@@ -4,6 +4,32 @@ import { getPentatonicShapeDisplayName } from './music-utils';
 
 // LRU cache for complementary color calculations
 const complementaryColorCache = createLRUCache<string>(50);
+const contrastTextColorCache = createLRUCache<string>(50);
+
+/**
+ * Get a contrasting text color (black or white) based on background luminance
+ * Uses WCAG relative luminance formula for accessibility
+ */
+export function getContrastTextColor(hexColor: string): string {
+	// Check cache first
+	const cached = contrastTextColorCache.get(hexColor);
+	if (cached) return cached;
+
+	// Remove # if present
+	const hex = hexColor.replace('#', '');
+
+	// Parse RGB
+	const r = parseInt(hex.substring(0, 2), 16);
+	const g = parseInt(hex.substring(2, 4), 16);
+	const b = parseInt(hex.substring(4, 6), 16);
+
+	// Calculate relative luminance (WCAG formula)
+	const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+	const result = luminance > 0.5 ? '#dc2626' : '#ffffff';
+	contrastTextColorCache.set(hexColor, result);
+	return result;
+}
 
 /**
  * Calculate complementary color for high contrast borders (memoized)
