@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Fretboard Visualizer is a guitar theory learning tool built with SvelteKit 2, Svelte 5, and Tailwind CSS 4. Users can click on frets to visualize notes and patterns on a guitar fretboard. The app includes a metronome and circle of fifths for practice.
+Fretboard Visualizer is a guitar theory learning tool built with SvelteKit 2, Svelte 5, and Tailwind CSS 4. Users can click on frets to visualize notes and patterns on a guitar fretboard. The app includes a metronome, circle of fifths, scale comparer, and strum pattern builder for practice.
 
 ## Commands
 
@@ -24,6 +24,7 @@ npm run format       # Auto-format with Prettier
 - **Tailwind CSS 4** via `@tailwindcss/vite` plugin
 - **shadcn-svelte** for UI components (based on bits-ui)
 - **TypeScript** throughout
+- **Tone.js** for strum pattern audio playback
 - **html-to-image** for PNG/SVG export
 
 ## Project Structure
@@ -31,17 +32,22 @@ npm run format       # Auto-format with Prettier
 ```
 src/
 ├── routes/
-│   ├── +page.svelte          # Main app page
-│   └── +layout.svelte        # Root layout (dark mode)
+│   ├── +page.svelte          # Main fretboard page
+│   ├── +layout.svelte        # Root layout (dark mode)
+│   ├── scale-comparer/       # Scale comparison tool
+│   └── strum-pattern/        # Strum pattern builder
 ├── lib/
 │   ├── components/
 │   │   ├── ui/               # shadcn-svelte components
+│   │   ├── app-shell/        # AppShell layout wrapper
 │   │   ├── fretboard/        # Fretboard, FretboardSettings, ShapeOverlay
 │   │   ├── metronome/        # MetronomeDisplay, MetronomeSettings
-│   │   ├── circle-of-fifths/ # CircleOfFifths
+│   │   ├── circle-of-fifths/ # CircleOfFifths (shared across pages)
+│   │   ├── scale-comparer/   # ScaleComparerSettings
+│   │   ├── strum-pattern/    # StrumPatternDisplay, BeatCell, ChordTimeline
 │   │   └── side-panel/       # SidePanel (settings container)
 │   ├── fretboard/            # Fretboard feature module
-│   │   ├── store.svelte.ts   # Singleton store with $state
+│   │   ├── store.svelte.ts   # Singleton store with $state (shared key/mode)
 │   │   ├── types.ts          # TypeScript interfaces
 │   │   ├── constants.ts      # Scales, tunings, layout dimensions
 │   │   ├── music-utils.ts    # Note/scale calculations
@@ -56,7 +62,14 @@ src/
 │   │   ├── audio.ts          # Web Audio API scheduling
 │   │   ├── storage.ts        # localStorage persistence
 │   │   └── index.ts          # Barrel exports
-│   └── utils.ts              # shadcn utility (cn function)
+│   ├── strum-pattern/        # Strum pattern feature module
+│   │   ├── store.svelte.ts   # Pattern state and playback
+│   │   ├── types.ts          # Beat, StrumEvent, ChordSlot types
+│   │   ├── constants.ts      # Pattern presets, strum cycle
+│   │   ├── audio.ts          # Tone.js guitar playback
+│   │   ├── storage.ts        # Pattern persistence
+│   │   └── index.ts          # Barrel exports
+│   └── utils.ts              # Shared utilities (cn, deepClone, etc.)
 └── app.css                   # Global styles + Tailwind
 ```
 
@@ -142,12 +155,17 @@ Configuration in `components.json` (zinc base color, dark mode).
 - `MIN_TEMPO = 20`, `MAX_TEMPO = 300` - BPM range
 - `CLICK_SOUNDS` - Available click sounds
 
+### Strum Pattern (`src/lib/strum-pattern/constants.ts`)
+- `PATTERN_PRESETS` - Built-in patterns (basic, folk, rock, ballad)
+- `STRUM_CYCLE` - Strum type cycle order (down → up → muted → rest)
+- `DEFAULT_SUBDIVISION = 2` - Eighth notes by default
+
 ## Keyboard Shortcuts
 
-Defined in `+page.svelte`:
-- `Space` - Toggle metronome play/pause
-- `Ctrl+Z` - Undo
-- `Ctrl+Y` / `Ctrl+Shift+Z` - Redo
+Defined in page components:
+- `Space` - Toggle metronome play/pause (fretboard) or strum pattern playback
+- `Ctrl+Z` - Undo (fretboard page)
+- `Ctrl+Y` / `Ctrl+Shift+Z` - Redo (fretboard page)
 
 ## Styling
 
@@ -165,6 +183,8 @@ Defined in `+page.svelte`:
 3. **Reassign the object** (`state.obj = {...state.obj}`) when deleting properties
 4. **Use `$derived`** for computed values that depend on state
 5. **Debounce history saves** to avoid excessive storage writes
+6. **Shared state**: Key/mode settings live in `fretboardStore` and are shared across all pages. Call `fretboardStore.setupAutoSave()` on pages that modify these settings.
+7. **Deep cloning**: Use `deepClone()` from utils.ts (JSON-based) instead of `structuredClone` for Svelte 5 Proxy compatibility
 
 ## Adding New Features
 

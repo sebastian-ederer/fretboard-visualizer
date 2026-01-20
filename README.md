@@ -44,6 +44,23 @@ Available at: [https://fretboardvisualizer.viridianblue.com/](https://fretboardv
 - Interactive visualization of key relationships
 - Major keys (outer ring) and relative minor keys (inner ring)
 - Highlights diatonic chords for the selected key
+- Drag chords to the Strum Pattern timeline
+
+### 🎸 Strum Pattern Builder
+
+- Build and practice strumming patterns with a visual beat grid
+- Click cells to cycle through strum types (Down, Up, Muted, Rest)
+- Drag chords from Circle of Fifths to create progressions
+- Audio playback with realistic guitar samples (Tone.js)
+- Syncs with metronome tempo and time signature
+- Save/load custom patterns with key and mode settings
+- Import/export patterns as JSON files
+
+### 📊 Scale Comparer
+
+- Compare two scales side-by-side on separate fretboards
+- Useful for learning modes and understanding scale relationships
+- Shared key/mode settings across all tools
 
 ### 💾 Presets & Export
 
