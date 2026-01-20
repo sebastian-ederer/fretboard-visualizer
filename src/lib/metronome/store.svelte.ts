@@ -21,6 +21,7 @@ function createMetronomeStore() {
 		accentFirstBeat: true,
 		clickSound: 'classic',
 		currentBeat: 0,
+		isMuted: false,
 		// Auto tempo
 		autoTempoEnabled: false,
 		autoTempoIncrement: DEFAULT_AUTO_TEMPO_INCREMENT,
@@ -49,7 +50,10 @@ function createMetronomeStore() {
 		while (nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD) {
 			// Use internal counter for accent check
 			const isAccent = state.accentFirstBeat && schedulerBeat === 0;
-			scheduleClick(nextNoteTime, isAccent, state.clickSound, state.volume);
+			// Only play sound if not muted
+			if (!state.isMuted) {
+				scheduleClick(nextNoteTime, isAccent, state.clickSound, state.volume);
+			}
 
 			// Capture the beat that's playing for visual update
 			const beatToShow = schedulerBeat;
@@ -118,6 +122,7 @@ function createMetronomeStore() {
 		if (!state.isPlaying) return;
 
 		state.isPlaying = false;
+		state.isMuted = false;
 		schedulerBeat = 0;
 		state.currentBeat = 0;
 		state.currentBar = 0;
@@ -135,6 +140,12 @@ function createMetronomeStore() {
 		} else {
 			start();
 		}
+	}
+
+	// Start metronome in muted mode (visual only, no sound)
+	function startMuted() {
+		state.isMuted = true;
+		start();
 	}
 
 	function setTempo(bpm: number) {
@@ -262,6 +273,7 @@ function createMetronomeStore() {
 		state,
 		initialize,
 		start,
+		startMuted,
 		stop,
 		toggle,
 		setTempo,

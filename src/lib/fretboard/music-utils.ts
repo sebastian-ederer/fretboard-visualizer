@@ -14,18 +14,6 @@ export function createFretKey(stringIndex: number, fretIndex: number): string {
 }
 
 /**
- * Parse a fret key back into string and fret indices
- */
-export function parseFretKey(key: string): { stringIndex: number; fretIndex: number } | null {
-	const parts = key.split('-');
-	if (parts.length !== 2) return null;
-	const stringIndex = parseInt(parts[0]);
-	const fretIndex = parseInt(parts[1]);
-	if (isNaN(stringIndex) || isNaN(fretIndex)) return null;
-	return { stringIndex, fretIndex };
-}
-
-/**
  * Get the chromatic scale based on notation preference
  */
 export function getChromaticScale(useFlats: boolean): string[] {

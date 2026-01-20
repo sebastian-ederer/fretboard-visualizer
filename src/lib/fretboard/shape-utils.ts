@@ -247,65 +247,57 @@ export function generateShapePath(shape: ActiveShape): string {
 }
 
 /**
+ * Get the min and max fret bounds of a shape
+ */
+function getShapeFretBounds(shape: ActiveShape): { minFret: number; maxFret: number } | null {
+	if (shape.path) {
+		const frets = shape.path.map((p) => shape.startFret + p[0]);
+		return {
+			minFret: Math.min(...frets),
+			maxFret: Math.max(...frets)
+		};
+	} else if (shape.endFret !== undefined) {
+		return {
+			minFret: shape.startFret,
+			maxFret: shape.endFret
+		};
+	}
+	return null;
+}
+
+/**
  * Check if shape overlaps with visible fretboard
  */
 export function isShapeVisible(shape: ActiveShape): boolean {
-	if (shape.path) {
-		const frets = shape.path.map((p) => shape.startFret + p[0]);
-		const minFret = Math.min(...frets);
-		const maxFret = Math.max(...frets);
-		return maxFret >= 0 && minFret <= FRET_COUNT;
-	} else if (shape.endFret !== undefined) {
-		return shape.endFret >= 0 && shape.startFret <= FRET_COUNT;
-	}
-	return false;
+	const bounds = getShapeFretBounds(shape);
+	if (!bounds) return false;
+	return bounds.maxFret >= 0 && bounds.minFret <= FRET_COUNT;
 }
 
 /**
  * Check if shape label should be visible
  */
 export function isShapeLabelVisible(shape: ActiveShape): boolean {
-	if (shape.path) {
-		const frets = shape.path.map((p) => shape.startFret + p[0]);
-		const minFret = Math.min(...frets);
-		const maxFret = Math.max(...frets);
-		const centerFret = (minFret + maxFret) / 2;
-		return centerFret >= 0 && centerFret <= FRET_COUNT;
-	} else if (shape.endFret !== undefined) {
-		const centerFret = (shape.startFret + shape.endFret) / 2;
-		return centerFret >= 0 && centerFret <= FRET_COUNT;
-	}
-	return false;
+	const bounds = getShapeFretBounds(shape);
+	if (!bounds) return false;
+	const centerFret = (bounds.minFret + bounds.maxFret) / 2;
+	return centerFret >= 0 && centerFret <= FRET_COUNT;
 }
 
 /**
  * Get center position for shape label
  */
 export function getShapeLabelPosition(shape: ActiveShape): { x: number; y: number } {
-	if (shape.path) {
-		const frets = shape.path.map((p) => shape.startFret + p[0]);
-		const minFret = Math.max(0, Math.min(...frets));
-		const maxFret = Math.min(FRET_COUNT, Math.max(...frets));
-		return {
-			x: (getFretX(minFret) + getFretX(maxFret)) / 2,
-			y: SHAPE_LABEL_Y_OFFSET
-		};
-	} else if (shape.endFret !== undefined) {
-		// For rectangle shapes - calculate position using constants
-		let left = STRING_LABEL_WIDTH;
-		for (let i = 0; i < shape.startFret; i++) {
-			left += i === 0 ? OPEN_FRET_WIDTH : FRET_WIDTH;
-		}
-		let width = 0;
-		for (let i = shape.startFret; i <= shape.endFret; i++) {
-			width += i === 0 ? OPEN_FRET_WIDTH : FRET_WIDTH;
-		}
-		return {
-			x: left + width / 2,
-			y: SHAPE_LABEL_Y_OFFSET
-		};
-	}
-	return { x: 0, y: 0 };
+	const bounds = getShapeFretBounds(shape);
+	if (!bounds) return { x: 0, y: 0 };
+
+	const clampedMin = Math.max(0, bounds.minFret);
+	const clampedMax = Math.min(FRET_COUNT, bounds.maxFret);
+
+	return {
+		x: (getFretX(clampedMin) + getFretX(clampedMax)) / 2,
+		y: SHAPE_LABEL_Y_OFFSET
+	};
 }
 
 /**

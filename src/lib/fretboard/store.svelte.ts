@@ -33,9 +33,7 @@ function createFretboardStore() {
 
 		// Scale settings
 		selectedKey: 'C',
-		previousKey: 'C',
 		isMajor: true,
-		previousIsMajor: true,
 		appliedIsMajor: true,
 		selectedScale: 'pentatonic',
 		lastAppliedScale: null as string | null,
@@ -195,9 +193,7 @@ function createFretboardStore() {
 	function restoreState(snapshot: HistoryState) {
 		state.selectedFrets = { ...snapshot.selectedFrets };
 		state.selectedKey = snapshot.selectedKey;
-		state.previousKey = snapshot.selectedKey;
 		state.isMajor = snapshot.isMajor;
-		state.previousIsMajor = snapshot.isMajor;
 		state.appliedIsMajor = snapshot.appliedIsMajor ?? snapshot.isMajor;
 		state.selectedScale = snapshot.selectedScale;
 		state.selectedColor = snapshot.selectedColor;
@@ -439,17 +435,25 @@ function createFretboardStore() {
 		pushHistory(true);
 	}
 
-	function clearString(stringIndex: number) {
-		for (let i = 0; i <= FRET_COUNT; i++) {
-			delete state.selectedFrets[`${stringIndex}-${i}`];
+	/**
+	 * Apply an operation to all frets on a string
+	 */
+	function forEachFretOnString(stringIndex: number, operation: (key: string) => void) {
+		for (let fretIndex = 0; fretIndex <= FRET_COUNT; fretIndex++) {
+			operation(createFretKey(stringIndex, fretIndex));
 		}
+	}
+
+	function clearString(stringIndex: number) {
+		forEachFretOnString(stringIndex, (key) => delete state.selectedFrets[key]);
+		state.selectedFrets = { ...state.selectedFrets };
 		pushHistory(true);
 	}
 
 	function selectString(stringIndex: number) {
-		for (let i = 0; i <= FRET_COUNT; i++) {
-			state.selectedFrets[`${stringIndex}-${i}`] = state.selectedColor;
-		}
+		forEachFretOnString(stringIndex, (key) => {
+			state.selectedFrets[key] = state.selectedColor;
+		});
 		pushHistory(true);
 	}
 
@@ -530,11 +534,9 @@ function createFretboardStore() {
 			if (saved.selectedFrets) state.selectedFrets = saved.selectedFrets;
 			if (saved.selectedKey) {
 				state.selectedKey = saved.selectedKey;
-				state.previousKey = saved.selectedKey;
 			}
 			if (saved.isMajor !== undefined) {
 				state.isMajor = saved.isMajor;
-				state.previousIsMajor = saved.isMajor;
 			}
 			if (saved.appliedIsMajor !== undefined) {
 				state.appliedIsMajor = saved.appliedIsMajor;
@@ -570,11 +572,26 @@ function createFretboardStore() {
 		}
 	}
 
-	// Auto-save effect
+	// Auto-save effect with debouncing
+	let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+	const AUTO_SAVE_DEBOUNCE_MS = 500;
+
 	function setupAutoSave() {
 		$effect(() => {
 			if (!state.isLoaded) return;
-			saveState(captureState());
+
+			// Track state changes that should trigger save
+			const currentState = captureState();
+
+			// Debounce the save operation
+			if (autoSaveTimer) clearTimeout(autoSaveTimer);
+			autoSaveTimer = setTimeout(() => {
+				saveState(currentState);
+			}, AUTO_SAVE_DEBOUNCE_MS);
+
+			return () => {
+				if (autoSaveTimer) clearTimeout(autoSaveTimer);
+			};
 		});
 	}
 
@@ -583,6 +600,10 @@ function createFretboardStore() {
 		if (historyDebounceTimer) {
 			clearTimeout(historyDebounceTimer);
 			historyDebounceTimer = null;
+		}
+		if (autoSaveTimer) {
+			clearTimeout(autoSaveTimer);
+			autoSaveTimer = null;
 		}
 	}
 

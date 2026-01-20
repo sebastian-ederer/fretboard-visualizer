@@ -15,6 +15,9 @@
 		fretboardStore.clearHighlights();
 	});
 
+	// Auto-save effect - uses store's built-in method
+	fretboardStore.setupAutoSave();
+
 	// Keyboard shortcuts for metronome
 	function handleKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;

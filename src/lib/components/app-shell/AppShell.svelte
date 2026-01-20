@@ -27,7 +27,8 @@
 	// Navigation items
 	const navItems = [
 		{ href: '/', label: 'Fretboard' },
-		{ href: '/scale-comparer', label: 'Scale Comparer' }
+		{ href: '/scale-comparer', label: 'Scale Comparer' },
+		{ href: '/strum-pattern', label: 'Strum Pattern' }
 	];
 
 	const currentPath = $derived($page.url.pathname);

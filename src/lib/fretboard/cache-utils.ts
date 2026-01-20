@@ -33,18 +33,3 @@ export function createLRUCache<T>(maxSize: number) {
 	};
 }
 
-/**
- * Helper to add an item to a Map with LRU eviction
- */
-export function setWithLRULimit<T>(
-	cache: Map<string, T>,
-	key: string,
-	value: T,
-	maxSize: number
-): void {
-	if (cache.size >= maxSize) {
-		const firstKey = cache.keys().next().value;
-		if (firstKey) cache.delete(firstKey);
-	}
-	cache.set(key, value);
-}

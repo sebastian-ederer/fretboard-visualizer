@@ -30,12 +30,6 @@ export interface ShapePattern {
 	path: [number, number][]; // [fretOffset, stringIndex] - the path through the shape
 }
 
-export interface Shape {
-	name: string;
-	startOffset: number;
-	span: number;
-}
-
 export interface ActiveShape {
 	name: string;
 	startFret: number;

@@ -49,12 +49,12 @@
 			variant="ghost"
 			size="sm"
 			class="h-6 w-6 p-0 sm:h-8 sm:w-8"
-			onmousedown={() => tempoHold.start(-5)}
+			onmousedown={() => tempoHold.start(-1)}
 			onmouseup={tempoHold.stop}
 			onmouseleave={tempoHold.stop}
-			ontouchstart={() => tempoHold.start(-5)}
+			ontouchstart={() => tempoHold.start(-1)}
 			ontouchend={tempoHold.stop}
-			aria-label="Decrease tempo by 5"
+			aria-label="Decrease tempo"
 		>
 			<Minus class="h-3 w-3 sm:h-4 sm:w-4" />
 		</Button>
@@ -68,12 +68,12 @@
 			variant="ghost"
 			size="sm"
 			class="h-6 w-6 p-0 sm:h-8 sm:w-8"
-			onmousedown={() => tempoHold.start(5)}
+			onmousedown={() => tempoHold.start(1)}
 			onmouseup={tempoHold.stop}
 			onmouseleave={tempoHold.stop}
-			ontouchstart={() => tempoHold.start(5)}
+			ontouchstart={() => tempoHold.start(1)}
 			ontouchend={tempoHold.stop}
-			aria-label="Increase tempo by 5"
+			aria-label="Increase tempo"
 		>
 			<Plus class="h-3 w-3 sm:h-4 sm:w-4" />
 		</Button>

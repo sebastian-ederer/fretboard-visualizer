@@ -1,4 +1,4 @@
-import type { ScaleInterval, Shape, ShapePattern } from './types';
+import type { ScaleInterval, ShapePattern } from './types';
 
 // Fretboard layout
 export const FRET_COUNT = 24;
@@ -301,28 +301,6 @@ export const PENTATONIC_SHAPES: ShapePattern[] = [
 		]
 	}
 ];
-
-// Rectangle-based scale shapes
-export const SCALE_SHAPES: Record<string, Shape[]> = {
-	diatonic: [
-		{ name: '1', startOffset: 0, span: 3 },
-		{ name: '2', startOffset: 2, span: 3 },
-		{ name: '3', startOffset: 4, span: 2 },
-		{ name: '4', startOffset: 5, span: 3 },
-		{ name: '5', startOffset: 7, span: 3 },
-		{ name: '6', startOffset: 9, span: 2 },
-		{ name: '7', startOffset: 11, span: 3 }
-	],
-	'3nps': [
-		{ name: '1', startOffset: 0, span: 4 },
-		{ name: '2', startOffset: 2, span: 4 },
-		{ name: '3', startOffset: 4, span: 3 },
-		{ name: '4', startOffset: 5, span: 4 },
-		{ name: '5', startOffset: 7, span: 4 },
-		{ name: '6', startOffset: 9, span: 3 },
-		{ name: '7', startOffset: 11, span: 4 }
-	]
-};
 
 // Shape colors (fill)
 export const SHAPE_COLORS = [

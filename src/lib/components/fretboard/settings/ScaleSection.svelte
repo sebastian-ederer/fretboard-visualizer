@@ -9,6 +9,7 @@
 	import { SCALE_VALUES, REMOVE_SCALE_VALUES } from '$lib/fretboard/constants';
 	import { getDisplayNote, getChromaticScale } from '$lib/fretboard/music-utils';
 	import { createScrollHandler, handleArrowKeys } from '$lib/utils/scroll-handler';
+	import { capitalize } from '$lib/utils';
 	import type { fretboardStore as FretboardStoreType } from '$lib/fretboard/store.svelte';
 
 	interface Props {
@@ -126,7 +127,7 @@
 						{#if s.selectedScale === 'melodic-minor'}
 							Mel. Minor
 						{:else}
-							{s.selectedScale.charAt(0).toUpperCase() + s.selectedScale.slice(1)}
+							{capitalize(s.selectedScale)}
 						{/if}
 					</Select.Trigger>
 					<Select.Content class="max-h-64 overflow-y-auto">
@@ -191,7 +192,7 @@
 						{:else if s.scaleToRemove === 'melodic-minor'}
 							Mel. Minor
 						{:else}
-							{s.scaleToRemove.charAt(0).toUpperCase() + s.scaleToRemove.slice(1)}
+							{capitalize(s.scaleToRemove)}
 						{/if}
 					</Select.Trigger>
 					<Select.Content class="max-h-64 overflow-y-auto">

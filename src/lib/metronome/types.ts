@@ -9,6 +9,7 @@ export interface MetronomeState {
 	accentFirstBeat: boolean;
 	clickSound: ClickSound;
 	currentBeat: number; // For visual indicator (0-indexed)
+	isMuted: boolean; // Visual only mode (no sound)
 
 	// Auto tempo increase
 	autoTempoEnabled: boolean;

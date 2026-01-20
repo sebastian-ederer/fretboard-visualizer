@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import type { HistoryState, Preset } from './types';
 import { STORAGE_KEY, PRESETS_KEY, HISTORY_KEY, MAX_HISTORY_SIZE } from './constants';
+import { isObject, isValidHexColor } from '$lib/utils';
 
 /**
  * Load state from localStorage
@@ -129,6 +130,59 @@ export function exportPresetsToFile(presets: Record<string, Preset>): void {
 }
 
 /**
+ * Validate a preset object has all required fields with correct types
+ */
+function isValidPreset(value: unknown): value is Preset {
+	if (!isObject(value)) return false;
+
+	// Required string fields
+	const stringFields = [
+		'selectedKey',
+		'selectedScale',
+		'selectedColor',
+		'customColor',
+		'scaleToRemove',
+		'selectedTuningPreset'
+	];
+	for (const field of stringFields) {
+		if (typeof value[field] !== 'string') return false;
+	}
+
+	// Required boolean fields
+	const booleanFields = [
+		'isMajor',
+		'appliedIsMajor',
+		'showShapeBoxes',
+		'show3NPSShapeBoxes',
+		'showIntervals',
+		'useFlats',
+		'eraseSelectedColorOnly',
+		'highlightRootNotes'
+	];
+	for (const field of booleanFields) {
+		if (typeof value[field] !== 'boolean') return false;
+	}
+
+	// Required number field
+	if (typeof value.selected3NPSShape !== 'number') return false;
+
+	// selectedFrets must be an object with string values (colors)
+	if (!isObject(value.selectedFrets)) return false;
+	for (const color of Object.values(value.selectedFrets)) {
+		if (typeof color !== 'string') return false;
+	}
+
+	// strings must be an array of strings
+	if (!Array.isArray(value.strings)) return false;
+	if (!value.strings.every((s) => typeof s === 'string')) return false;
+
+	// rootNoteHighlightColor should be a valid color
+	if (typeof value.rootNoteHighlightColor !== 'string') return false;
+
+	return true;
+}
+
+/**
  * Import presets from a file
  */
 export function importPresetsFromFile(
@@ -149,23 +203,26 @@ export function importPresetsFromFile(
 				throw new Error('Invalid file content');
 			}
 
-			const imported = JSON.parse(result) as Record<string, Preset>;
+			const parsed: unknown = JSON.parse(result);
 
 			// Validate the imported data structure
-			if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+			if (!isObject(parsed)) {
 				throw new Error('Invalid preset file format: expected object');
 			}
 
-			for (const [name, preset] of Object.entries(imported)) {
-				if (!preset || typeof preset !== 'object') {
-					throw new Error(`Invalid preset format for "${name}"`);
+			const validated: Record<string, Preset> = {};
+			for (const [name, preset] of Object.entries(parsed)) {
+				// Limit preset name length
+				if (name.length > 100) {
+					throw new Error(`Preset name "${name.slice(0, 20)}..." is too long (max 100 characters)`);
 				}
-				if (typeof preset.selectedFrets !== 'object' || typeof preset.selectedKey !== 'string') {
-					throw new Error(`Invalid preset format for "${name}": missing required fields`);
+				if (!isValidPreset(preset)) {
+					throw new Error(`Invalid preset format for "${name}": missing or invalid required fields`);
 				}
+				validated[name] = preset;
 			}
 
-			onSuccess(imported);
+			onSuccess(validated);
 		} catch (err) {
 			onError(err instanceof Error ? err : new Error(String(err)));
 		}

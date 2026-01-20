@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { fretboardStore } from '$lib/fretboard';
+	import { strumPatternStore } from '$lib/strum-pattern';
 	import {
 		CIRCLE_OF_FIFTHS_MAJOR,
 		CIRCLE_OF_FIFTHS_MINOR,
@@ -79,6 +81,107 @@
 	// Track currently highlighted chord for toggle behavior
 	let activeChord = $state<{ key: string; isMajor: boolean } | null>(null);
 
+	// Custom drag implementation for SVG elements
+	let dragElement: HTMLDivElement | null = null;
+	let isDragging = false;
+
+	// Track active listeners for cleanup
+	let activeMouseMoveListener: ((e: MouseEvent) => void) | null = null;
+	let activeMouseUpListener: ((e: MouseEvent) => void) | null = null;
+
+	function cleanupDragListeners() {
+		if (activeMouseMoveListener) {
+			document.removeEventListener('mousemove', activeMouseMoveListener);
+			activeMouseMoveListener = null;
+		}
+		if (activeMouseUpListener) {
+			document.removeEventListener('mouseup', activeMouseUpListener);
+			activeMouseUpListener = null;
+		}
+		if (dragElement && dragElement.parentNode) {
+			dragElement.parentNode.removeChild(dragElement);
+			dragElement = null;
+		}
+		if (isDragging) {
+			strumPatternStore.state.draggedChord = null;
+			strumPatternStore.state.showChordDropZones = false;
+			isDragging = false;
+		}
+	}
+
+	// Cleanup on component destroy
+	onDestroy(cleanupDragListeners);
+
+	function handleMouseDown(e: MouseEvent, key: string, isMajor: boolean) {
+		// Cleanup any existing listeners first
+		cleanupDragListeners();
+		// Only enable drag if we detect movement (prevents interfering with click)
+		const startX = e.clientX;
+		const startY = e.clientY;
+		const chordName = isMajor ? getDisplayNote(key, s.useFlats) : `${getDisplayNote(key, s.useFlats)}m`;
+
+		function onMouseMove(moveEvent: MouseEvent) {
+			const dx = moveEvent.clientX - startX;
+			const dy = moveEvent.clientY - startY;
+
+			// Start drag after 5px movement
+			if (!isDragging && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+				isDragging = true;
+				strumPatternStore.state.draggedChord = chordName;
+				strumPatternStore.state.showChordDropZones = true;
+
+				// Create visual drag element
+				dragElement = document.createElement('div');
+				dragElement.className = 'fixed pointer-events-none z-50 px-2 py-1 bg-primary text-primary-foreground rounded text-sm font-medium shadow-lg';
+				dragElement.textContent = chordName;
+				document.body.appendChild(dragElement);
+			}
+
+			if (isDragging && dragElement) {
+				dragElement.style.left = `${moveEvent.clientX + 10}px`;
+				dragElement.style.top = `${moveEvent.clientY + 10}px`;
+			}
+		}
+
+		function onMouseUp(upEvent: MouseEvent) {
+			// Clear tracked listeners
+			activeMouseMoveListener = null;
+			activeMouseUpListener = null;
+			document.removeEventListener('mousemove', onMouseMove);
+			document.removeEventListener('mouseup', onMouseUp);
+
+			if (isDragging) {
+				// Check if dropped on a valid chord drop zone
+				const dropTarget = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
+				if (dropTarget) {
+					// Find the drop zone element (could be the target or an ancestor)
+					const dropZone = dropTarget.closest('[data-chord-drop-zone="true"]') as HTMLElement | null;
+					if (dropZone) {
+						const beatIndex = dropZone.dataset.beatIndex;
+						if (beatIndex !== undefined) {
+							strumPatternStore.handleChordDrop(chordName, parseInt(beatIndex, 10));
+						}
+					}
+				}
+
+				// Cleanup
+				if (dragElement) {
+					document.body.removeChild(dragElement);
+					dragElement = null;
+				}
+				strumPatternStore.state.draggedChord = null;
+				strumPatternStore.state.showChordDropZones = false;
+				isDragging = false;
+			}
+		}
+
+		// Store listeners for cleanup
+		activeMouseMoveListener = onMouseMove;
+		activeMouseUpListener = onMouseUp;
+		document.addEventListener('mousemove', onMouseMove);
+		document.addEventListener('mouseup', onMouseUp);
+	}
+
 	// Handle chord click - highlight chord notes on fretboard (toggle behavior)
 	function handleChordClick(key: string, isMajor: boolean, degree: number | null) {
 		// If clicking the same chord, clear highlights
@@ -151,6 +254,7 @@
 					? 'fill-muted/50 hover:fill-muted'
 					: 'hover:opacity-80'}"
 				onclick={() => handleChordClick(key, true, info.degree)}
+				onmousedown={(e) => handleMouseDown(e, key, true)}
 				role="button"
 				tabindex="0"
 				onkeydown={(e) => e.key === 'Enter' && handleChordClick(key, true, info.degree)}
@@ -183,6 +287,7 @@
 					? 'fill-muted/30 hover:fill-muted/50'
 					: 'hover:opacity-80'}"
 				onclick={() => handleChordClick(key, false, info.degree)}
+				onmousedown={(e) => handleMouseDown(e, key, false)}
 				role="button"
 				tabindex="0"
 				onkeydown={(e) => e.key === 'Enter' && handleChordClick(key, false, info.degree)}
