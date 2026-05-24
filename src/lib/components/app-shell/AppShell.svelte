@@ -6,10 +6,14 @@
 	import { MetronomeDisplay } from '$lib/components/metronome';
 	import { Button } from '$lib/components/ui/button';
 	import * as Sheet from '$lib/components/ui/sheet';
+	import { themeStore } from '$lib/theme';
 	import Github from '@lucide/svelte/icons/github';
 	import Settings from '@lucide/svelte/icons/settings';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Sun from '@lucide/svelte/icons/sun';
+	import Moon from '@lucide/svelte/icons/moon';
+	import Monitor from '@lucide/svelte/icons/monitor';
 
 	interface Props {
 		title: string;
@@ -74,6 +78,21 @@
 						<div class="mx-1 h-4 w-px bg-border"></div>
 					</div>
 				{/if}
+				<button
+					type="button"
+					onclick={() => themeStore.cyclePreference()}
+					class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					title="Theme: {themeStore.state.preference} (click to cycle)"
+					aria-label="Cycle theme"
+				>
+					{#if themeStore.state.preference === 'light'}
+						<Sun class="h-4 w-4" />
+					{:else if themeStore.state.preference === 'dark'}
+						<Moon class="h-4 w-4" />
+					{:else}
+						<Monitor class="h-4 w-4" />
+					{/if}
+				</button>
 				<a
 					href="https://github.com/sebastian-ederer/fretboard-visualizer"
 					target="_blank"

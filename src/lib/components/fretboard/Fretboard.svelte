@@ -87,7 +87,7 @@
 	{#snippet cellContent({ stringIndex, fretIndex })}
 		<!-- Circular hit area for painting -->
 		<button
-			class="relative flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
+			class="relative flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-foreground/10 active:bg-foreground/20"
 			data-string={stringIndex}
 			data-fret={fretIndex}
 			aria-label={getAriaLabel(stringIndex, fretIndex)}

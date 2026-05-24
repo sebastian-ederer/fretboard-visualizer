@@ -1,6 +1,8 @@
 <script lang="ts">
 	import '../app.css';
+	import { onDestroy, onMount } from 'svelte';
 	import favicon from '$lib/assets/favicon.png';
+	import { themeStore } from '$lib/theme';
 
 	let { children } = $props();
 
@@ -9,6 +11,19 @@
 		'Free interactive guitar fretboard tool for learning scales, modes, and music theory. Visualize pentatonic shapes, practice with a built-in metronome, and explore the circle of fifths.';
 	const url = 'https://fretboardvisualizer.viridianblue.com';
 	const image = `${url}${favicon}`;
+
+	let cleanup: (() => void) | undefined;
+
+	onMount(() => {
+		cleanup = themeStore.initialize();
+	});
+
+	onDestroy(() => cleanup?.());
+
+	$effect(() => {
+		if (typeof document === 'undefined') return;
+		document.documentElement.classList.toggle('dark', themeStore.isDark);
+	});
 </script>
 
 <svelte:head>
@@ -21,7 +36,10 @@
 		content="guitar fretboard, guitar scales, music theory, pentatonic shapes, guitar learning, metronome, circle of fifths, guitar practice tool, fretboard visualization"
 	/>
 	<meta name="author" content="Sebastian Ederer" />
-	<meta name="theme-color" content="#09090b" />
+	<meta name="theme-color" content={themeStore.isDark ? '#09090b' : '#ffffff'} />
+
+	<!-- Pre-hydration theme application to prevent flash of wrong theme -->
+	{@html `<script>(function(){try{var p=localStorage.getItem('fretboard-visualizer-theme');var d=p==='dark'||((!p||p==='auto')&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();</script>`}
 
 	<!-- Canonical URL -->
 	<link rel="canonical" href={url} />
@@ -77,6 +95,6 @@
 	})}</script>`}
 </svelte:head>
 
-<div class="dark min-h-screen bg-background text-foreground">
+<div class="min-h-screen bg-background text-foreground">
 	{@render children()}
 </div>

@@ -250,7 +250,9 @@
 			<path
 				d={getArcPath(i, INNER_RADIUS + 2, OUTER_RADIUS)}
 				fill={color?.bg ?? undefined}
-				class="cursor-pointer transition-colors duration-150 {!color
+				stroke="transparent"
+				stroke-width="2"
+				class="cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:outline-none focus-visible:stroke-foreground {!color
 					? 'fill-muted/50 hover:fill-muted'
 					: 'hover:opacity-80'}"
 				onclick={() => handleChordClick(key, true, info.degree)}
@@ -283,7 +285,9 @@
 			<path
 				d={getArcPath(i, 30, INNER_RADIUS)}
 				fill={color?.bg ?? undefined}
-				class="cursor-pointer transition-colors duration-150 {!color
+				stroke="transparent"
+				stroke-width="2"
+				class="cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:outline-none focus-visible:stroke-foreground {!color
 					? 'fill-muted/30 hover:fill-muted/50'
 					: 'hover:opacity-80'}"
 				onclick={() => handleChordClick(key, false, info.degree)}

@@ -3,6 +3,8 @@
  * Handles PNG and SVG export with lazy-loaded html-to-image
  */
 
+import { themeStore } from '$lib/theme';
+
 // Lazy-load html-to-image once and cache
 let htmlToImageModule: typeof import('html-to-image') | null = null;
 
@@ -30,7 +32,7 @@ export async function exportAsPng(element: HTMLElement | null, filename = 'fretb
 	try {
 		const { toPng } = await getHtmlToImage();
 		const dataUrl = await toPng(element, {
-			backgroundColor: '#09090b',
+			backgroundColor: themeStore.isDark ? '#09090b' : '#ffffff',
 			pixelRatio: 2
 		});
 		downloadFile(dataUrl, filename);
@@ -47,7 +49,7 @@ export async function exportAsSvg(element: HTMLElement | null, filename = 'fretb
 	try {
 		const { toSvg } = await getHtmlToImage();
 		const dataUrl = await toSvg(element, {
-			backgroundColor: '#09090b'
+			backgroundColor: themeStore.isDark ? '#09090b' : '#ffffff'
 		});
 		downloadFile(dataUrl, filename);
 	} catch (err) {

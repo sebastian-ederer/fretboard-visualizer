@@ -86,7 +86,7 @@
 
 				<!-- String line -->
 				<div
-					class="pointer-events-none absolute left-10 right-0 bg-gradient-to-r from-zinc-400 via-zinc-300 to-zinc-400"
+					class="pointer-events-none absolute left-10 right-0 bg-gradient-to-r from-zinc-500 via-zinc-400 to-zinc-500 dark:from-zinc-400 dark:via-zinc-300 dark:to-zinc-400"
 					style="height: {STRING_THICKNESS_BASE + stringIndex * STRING_THICKNESS_INCREMENT}px;"
 				></div>
 
@@ -94,8 +94,8 @@
 					<div
 						class="relative z-20 flex h-10 flex-shrink-0 items-center justify-center {fretIndex ===
 						0
-							? 'w-8 border-r-4 border-r-zinc-300 bg-zinc-900/30'
-							: 'w-14 border-r-2 border-r-zinc-600'}"
+							? 'w-8 border-r-4 border-r-foreground/40 bg-foreground/15'
+							: 'w-14 border-r-2 border-r-foreground/30'}"
 					>
 						{@render cellContent({ stringIndex, fretIndex })}
 					</div>
@@ -112,10 +112,10 @@
 						: 'w-14'}"
 				>
 					{#if SINGLE_DOT_FRETS.includes(fretIndex)}
-						<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
+						<div class="h-2 w-2 rounded-full bg-foreground/30"></div>
 					{:else if DOUBLE_DOT_FRETS.includes(fretIndex)}
-						<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
-						<div class="h-2 w-2 rounded-full bg-zinc-600"></div>
+						<div class="h-2 w-2 rounded-full bg-foreground/30"></div>
+						<div class="h-2 w-2 rounded-full bg-foreground/30"></div>
 					{/if}
 				</div>
 			{/each}
