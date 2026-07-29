@@ -7,6 +7,8 @@ An interactive guitar fretboard visualization tool for learning music theory. Cl
 
 Available at: [https://fretboardvisualizer.viridianblue.com/](https://fretboardvisualizer.viridianblue.com/)
 
+![Screenshot fretboard visualizer](./media/screenshot.png "Fretboard Visualizer - Viridian Blue")
+
 > [!NOTE]
 > This entire app was vibe-coded using [Claude Code](https://claude.ai/code).
 
